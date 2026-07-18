@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
@@ -28,6 +27,7 @@ object AppUpdateChecker {
 
     private const val MANIFEST_URL =
         "https://pub-02ac16656b17473f97b1b838e1bc546d.r2.dev/dancefactory/updates/latest.json"
+    private const val OFFICIAL_DOWNLOAD_URL = "https://dfworkshop.top/"
 
     data class UpdateInfo(
         val latestVersion: String,
@@ -39,9 +39,9 @@ object AppUpdateChecker {
         val mandatory: Boolean
     )
 
-    suspend fun checkForUpdate(context: Activity): UpdateInfo? {
-        return withContext(Dispatchers.IO) {
-            try {
+    suspend fun checkForUpdate(context: Activity, showFailure: Boolean = false): UpdateInfo? {
+        return try {
+            withContext(Dispatchers.IO) {
                 val currentVersion = try {
                     context.packageManager
                         .getPackageInfo(context.packageName, 0).versionName
@@ -83,7 +83,14 @@ object AppUpdateChecker {
                         mandatory = mandatory
                     )
                 } else null
-            } catch (_: Exception) { null }
+            }
+        } catch (_: Exception) {
+            if (showFailure) {
+                withContext(Dispatchers.Main) {
+                    showOfficialDownloadDialog(context, "无法完成更新检查。")
+                }
+            }
+            null
         }
     }
 
@@ -121,16 +128,12 @@ object AppUpdateChecker {
     private fun downloadAndInstallApk(activity: Activity, info: UpdateInfo) {
         val downloadUri = Uri.parse(info.downloadUrl)
         if (downloadUri.scheme != "https" || info.size <= 0 || info.size > 2L * 1024 * 1024 * 1024) {
-            Toast.makeText(activity, "更新包信息无效", Toast.LENGTH_LONG).show()
+            showOfficialDownloadDialog(activity, "更新包信息无效，无法继续自动更新。")
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!activity.packageManager.canRequestPackageInstalls()) {
-                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:${activity.packageName}")
-                }
-                activity.startActivity(intent)
-                Toast.makeText(activity, "请允许安装未知来源应用后重试", Toast.LENGTH_LONG).show()
+                showOfficialDownloadDialog(activity, "当前设备未授予应用安装权限，无法继续自动更新。")
                 return
             }
         }
@@ -148,7 +151,12 @@ object AppUpdateChecker {
         }
 
         val dm = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = dm.enqueue(request)
+        val downloadId = try {
+            dm.enqueue(request)
+        } catch (_: Exception) {
+            showOfficialDownloadDialog(activity, "更新包下载无法启动。")
+            return
+        }
 
         Toast.makeText(activity, "开始下载更新...", Toast.LENGTH_SHORT).show()
 
@@ -172,15 +180,15 @@ object AppUpdateChecker {
                 }
                 if (!valid) {
                     if (apkFile.exists()) apkFile.delete()
-                    AlertDialog.Builder(activity)
-                        .setTitle("校验失败")
-                        .setMessage("安装包下载失败或校验不通过，请重试。")
-                        .setPositiveButton("确定", null)
-                        .show()
+                    showOfficialDownloadDialog(activity, "安装包下载失败或校验不通过。")
                     return
                 }
 
-                installApk(activity, apkFile)
+                try {
+                    installApk(activity, apkFile)
+                } catch (_: Exception) {
+                    showOfficialDownloadDialog(activity, "无法启动安装程序。")
+                }
             }
         }
 
@@ -210,6 +218,22 @@ object AppUpdateChecker {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         activity.startActivity(intent)
+    }
+
+    private fun showOfficialDownloadDialog(activity: Activity, reason: String) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle("更新失败")
+            .setMessage("$reason\n\n请前往官网重新下载安装最新版本。")
+            .setPositiveButton("前往官网重新下载") { _, _ ->
+                try {
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_DOWNLOAD_URL)))
+                } catch (_: Exception) {
+                    Toast.makeText(activity, "请在浏览器中打开：$OFFICIAL_DOWNLOAD_URL", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun sha256(file: File): String {

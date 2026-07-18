@@ -424,7 +424,7 @@ internal fun MainActivity.checkAndroidUpdate() {
 
         lifecycleScope.launch {
             try {
-                val updateInfo = AppUpdateChecker.checkForUpdate(activity)
+                val updateInfo = AppUpdateChecker.checkForUpdate(activity, showFailure = true)
                 if (updateInfo == null) {
                     Toast.makeText(activity, "当前已是最新版本", Toast.LENGTH_SHORT).show()
                 } else {

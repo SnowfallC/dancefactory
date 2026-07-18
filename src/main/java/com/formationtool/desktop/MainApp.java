@@ -46,7 +46,9 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import javax.imageio.ImageIO;
+import java.awt.Desktop;
 import java.io.File;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +56,8 @@ import java.util.Optional;
  * 主应用程序
  */
 public class MainApp extends Application {
+
+    private static final String OFFICIAL_DOWNLOAD_URL = "https://dfworkshop.top/";
 
     // 静态变量用于工程切换
     public static String selectedProjectId = null;
@@ -1181,7 +1185,7 @@ public class MainApp extends Application {
             } catch (Exception e) {
                 System.out.println("[更新检查] 检查失败: " + e.getMessage());
                 if (showResultWhenNoUpdate) {
-                    Platform.runLater(() -> showError(
+                    Platform.runLater(() -> showUpdateFailure(
                         "检查更新失败",
                         "无法完成更新检查。\n\n错误信息：" + e.getMessage()
                     ));
@@ -1252,7 +1256,7 @@ public class MainApp extends Application {
             public void onError(String message) {
                 Platform.runLater(() -> {
                     progressAlert.close();
-                    showError("更新失败", message);
+                    showUpdateFailure("更新失败", message);
                 });
             }
 
@@ -1269,6 +1273,40 @@ public class MainApp extends Application {
                 });
             }
         });
+    }
+
+    private void showUpdateFailure(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText("自动更新未完成");
+        alert.setContentText(message + "\n\n请前往官网重新下载安装最新版本。");
+
+        ButtonType downloadButton = new ButtonType("前往官网重新下载");
+        alert.getButtonTypes().setAll(downloadButton, ButtonType.CLOSE);
+        alert.showAndWait().ifPresent(button -> {
+            if (button == downloadButton) {
+                openOfficialDownloadPage();
+            }
+        });
+    }
+
+    private void openOfficialDownloadPage() {
+        Thread browserThread = new Thread(() -> {
+            try {
+                if (!Desktop.isDesktopSupported()
+                    || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    throw new IllegalStateException("当前系统不支持打开浏览器");
+                }
+                Desktop.getDesktop().browse(URI.create(OFFICIAL_DOWNLOAD_URL));
+            } catch (Exception e) {
+                Platform.runLater(() -> showError(
+                    "无法打开官网",
+                    "请在浏览器中打开：" + OFFICIAL_DOWNLOAD_URL
+                ));
+            }
+        }, "OfficialDownloadPageThread");
+        browserThread.setDaemon(true);
+        browserThread.start();
     }
 
     public static void main(String[] args) {
