@@ -122,6 +122,8 @@ internal fun VideoExporter.exportWithConfigImpl(
                                 referenceVideoRotationDegrees = runCatching {
                                     format.getInteger(MediaFormat.KEY_ROTATION)
                                 }.getOrDefault(0)
+                                // 解码器输出到 Surface 时会自动应用该旋转，清零后统一由纹理渲染处理。
+                                format.setInteger(MediaFormat.KEY_ROTATION, 0)
                             }
 
                             videoDecoder = MediaCodec.createDecoderByType(mime)

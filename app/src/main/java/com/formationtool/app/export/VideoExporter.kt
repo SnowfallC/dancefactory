@@ -524,8 +524,10 @@ class VideoExporter(
     }
 
     /**
-     * 获取指定时间的阵型和插值进度
-     * 基于"保持区 + 变换区"的逻辑
+     * 获取指定时间的阵型和插值进度。
+     *
+     * 与预览保持相同的前红后绿规则：下一关键帧的 duration 是到达该帧前的过渡时长，
+     * holdDuration 是到达该帧后的保持时长。
      */
     internal fun getFormationAtTime(formations: List<Formation>, timeMs: Long): Triple<Formation, Formation?, Float> {
         if (formations.isEmpty()) {
@@ -536,36 +538,21 @@ class VideoExporter(
             return Triple(formations[0], null, 0f)
         }
 
-        // 遍历所有阵型，根据"保持 + 变换"逻辑计算插值
-        for (i in 0 until formations.size - 1) {
+        for (i in formations.indices) {
             val current = formations[i]
-            val next = formations[i + 1]
+            val next = formations.getOrNull(i + 1)
+            val transitionStartMs = current.timestamp - current.duration
+            val holdEndMs = current.timestamp + current.holdDuration
 
-            // 当前阵型的各个时间点
-            val segmentStartTime = current.timestamp
-            val holdEndTime = segmentStartTime + current.holdDuration
-            val transEndTime = holdEndTime + current.duration  // duration = transitionDuration
+            if (i > 0 && current.duration > 0 && timeMs >= transitionStartMs && timeMs < current.timestamp) {
+                val previous = formations[i - 1]
+                val progress = ((timeMs - transitionStartMs).toFloat() / current.duration)
+                    .coerceIn(0f, 1f)
+                return Triple(previous, current, progress)
+            }
 
-            when {
-                timeMs < holdEndTime -> {
-                    // 在保持阶段：不进行插值，返回当前阵型
-                    return Triple(current, next, 0f)
-                }
-                timeMs < transEndTime -> {
-                    // 在变换阶段：计算插值进度
-                    val progress = if (current.duration > 0) {
-                        ((timeMs - holdEndTime).toFloat() / current.duration).coerceIn(0f, 1f)
-                    } else {
-                        1f
-                    }
-                    return Triple(current, next, progress)
-                }
-                timeMs < next.timestamp -> {
-                    // 已经超过变换阶段，但还没到下一帧的 timestamp
-                    // 这种情况理论上不应该发生（timestamp 应该等于 transEndTime）
-                    // 但为了容错，返回下一帧
-                    return Triple(next, if (i + 2 < formations.size) formations[i + 2] else null, 0f)
-                }
+            if (timeMs >= current.timestamp && timeMs < holdEndMs) {
+                return Triple(current, next, 0f)
             }
         }
 
@@ -615,13 +602,15 @@ class VideoExporter(
             }
 
             var frameDecoded = false
+            var inputEnded = false
+            var hasRetainedFrame = false
             var attempts = 0
             val maxAttempts = 30  // 增加尝试次数
 
             // 连续解码直到找到目标帧
             while (!frameDecoded && attempts < maxAttempts) {
                 // 读取并解码一帧
-                val inputBufferIndex = decoder.dequeueInputBuffer(TIMEOUT_USEC)
+                val inputBufferIndex = if (inputEnded) -1 else decoder.dequeueInputBuffer(TIMEOUT_USEC)
                 if (inputBufferIndex >= 0) {
                     val inputBuffer = decoder.getInputBuffer(inputBufferIndex)
                     inputBuffer?.clear()
@@ -632,8 +621,15 @@ class VideoExporter(
                         decoder.queueInputBuffer(inputBufferIndex, 0, sampleSize, presentationTimeUs, 0)
                         extractor.advance()
                     } else {
-                        // 视频结束，重新开始
-                        extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                        // 视频结束时送出结束标记，保留最后一帧，不能回到开头造成画面回跳。
+                        decoder.queueInputBuffer(
+                            inputBufferIndex,
+                            0,
+                            0,
+                            0L,
+                            MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                        )
+                        inputEnded = true
                     }
                 }
 
@@ -647,7 +643,7 @@ class VideoExporter(
 
                     // 检查是否是我们需要的帧（允许一帧的误差）
                     val frameDuration = if (videoFps > 0) 1_000_000 / videoFps else 33333
-                    if (frameTimeUs >= targetTimeUs - frameDuration / 2) {
+                    if (bufferInfo.size > 0 && frameTimeUs >= targetTimeUs - frameDuration / 2) {
                         // 这是我们需要的帧，渲染它
                         decoder.releaseOutputBuffer(outputBufferIndex, true)
                         surfaceTexture.updateTexImage()
@@ -661,22 +657,44 @@ class VideoExporter(
                             rotationDegrees = rotationDegrees
                         )
                         frameDecoded = true
+                    } else if (bufferInfo.size > 0 && inputEnded) {
+                        // 目标时间超出参考视频时，将最后可用帧提交到纹理，供本轮导出保持显示。
+                        decoder.releaseOutputBuffer(outputBufferIndex, true)
+                        surfaceTexture.updateTexImage()
+                        hasRetainedFrame = true
                     } else {
                         // 这帧太早，丢弃它，继续解码
                         decoder.releaseOutputBuffer(outputBufferIndex, false)
                     }
+                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                        break
+                    }
                 } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     Log.d(TAG, "视频解码器输出格式变化")
+                } else if (inputEnded && outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    break
                 }
 
                 attempts++
             }
 
             if (!frameDecoded) {
-                // 没有解码到帧，填充黑色
-                GLES20.glClearColor(0f, 0f, 0f, 1f)
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                Log.w(TAG, "未能解码到目标帧 ${targetTimeMs}ms")
+                if (hasRetainedFrame) {
+                    renderVideoTexture(
+                        textureId = textureId,
+                        videoWidth = videoWidth,
+                        videoHeight = videoHeight,
+                        targetWidth = targetWidth,
+                        targetHeight = targetHeight,
+                        surfaceTexture = surfaceTexture,
+                        rotationDegrees = rotationDegrees
+                    )
+                } else {
+                    // 没有任何可用帧时才填充黑色。
+                    GLES20.glClearColor(0f, 0f, 0f, 1f)
+                    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+                    Log.w(TAG, "未能解码到目标帧 ${targetTimeMs}ms")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "解码视频帧失败", e)
@@ -757,12 +775,12 @@ class VideoExporter(
         val bottom = -scaleY
         val top = scaleY
 
-        // 外部纹理基础UV（与SurfaceTexture默认采样方向一致）
+        // 外部纹理基础 UV。SurfaceTexture 的变换矩阵已包含视频帧的坐标转换，不能预先翻转 Y 轴。
         val baseTexCoords = floatArrayOf(
-            0f, 1f,
-            1f, 1f,
             0f, 0f,
-            1f, 0f
+            1f, 0f,
+            0f, 1f,
+            1f, 1f
         )
 
         // 应用SurfaceTexture变换矩阵（裁剪/镜像）
