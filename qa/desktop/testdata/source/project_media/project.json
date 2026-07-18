@@ -1,0 +1,53 @@
+{
+  "id": "qa-media-001",
+  "name": "QA Media Project",
+  "dancerCount": 2,
+  "formations": [
+    {
+      "id": "f-media-001",
+      "name": "关键帧 00:00",
+      "dancers": [
+        {
+          "id": "d-media-001",
+          "name": "A",
+          "x": -1.0,
+          "y": 0.0,
+          "z": 0.5,
+          "color": -65536,
+          "customStylePath": "dancer_styles/d-media-001.png",
+          "rotation": 0.0,
+          "scale": 1.0,
+          "groupId": null
+        },
+        {
+          "id": "d-media-002",
+          "name": "B",
+          "x": 1.0,
+          "y": 0.0,
+          "z": 0.5,
+          "color": -16711936,
+          "customStylePath": null,
+          "rotation": 0.0,
+          "scale": 1.0,
+          "groupId": null
+        }
+      ],
+      "props": [],
+      "timestamp": 0,
+      "holdDuration": 4000,
+      "duration": 0,
+      "notes": ""
+    }
+  ],
+  "stageWidth": 16.0,
+  "stageDepth": 12.0,
+  "musicPath": null,
+  "referenceVideoUri": "file:///qa/video.mp4",
+  "audioUri": "file:///qa/audio.mp3",
+  "referenceVideoPath": "video.mp4",
+  "audioPath": "audio.mp3",
+  "thumbnailPath": null,
+  "createdTime": 1700000001000,
+  "modifiedTime": 1700000001000,
+  "updateVersion": 0
+}

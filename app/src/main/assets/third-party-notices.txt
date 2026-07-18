@@ -1,0 +1,9 @@
+DanceFactory is licensed under GNU GPL version 3 or later.
+
+This application uses open-source components including AndroidX, Kotlin,
+Material Components, Gson, and other dependencies listed in the source
+repository's THIRD_PARTY_NOTICES.md. Their copyright and license terms remain
+with their respective owners.
+
+Source and notices:
+https://github.com/SnowfallC/dancefactory

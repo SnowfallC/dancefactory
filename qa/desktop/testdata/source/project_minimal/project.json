@@ -1,0 +1,41 @@
+{
+  "id": "qa-minimal-001",
+  "name": "QA Minimal Project",
+  "dancerCount": 1,
+  "formations": [
+    {
+      "id": "f-minimal-001",
+      "name": "关键帧 00:00",
+      "dancers": [
+        {
+          "id": "d-minimal-001",
+          "name": "D1",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.5,
+          "color": -1,
+          "customStylePath": null,
+          "rotation": 0.0,
+          "scale": 1.0,
+          "groupId": null
+        }
+      ],
+      "props": [],
+      "timestamp": 0,
+      "holdDuration": 4000,
+      "duration": 0,
+      "notes": ""
+    }
+  ],
+  "stageWidth": 16.0,
+  "stageDepth": 12.0,
+  "musicPath": null,
+  "referenceVideoUri": null,
+  "audioUri": null,
+  "referenceVideoPath": null,
+  "audioPath": null,
+  "thumbnailPath": null,
+  "createdTime": 1700000000000,
+  "modifiedTime": 1700000000000,
+  "updateVersion": 0
+}

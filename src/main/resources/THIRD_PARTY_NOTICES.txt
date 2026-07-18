@@ -1,0 +1,10 @@
+DanceFactory is licensed under GNU GPL version 3 or later.
+
+This desktop distribution uses OpenJFX, Gson, JavaCV/JavaCPP Presets, FFmpeg,
+and their transitive dependencies. Their copyright and license terms remain
+with their respective owners. FFmpeg is provided under LGPL 2.1 or later, or
+GPL 2 or later when GPL components are enabled.
+
+Source, complete notices, and build information:
+https://github.com/SnowfallC/dancefactory
+https://ffmpeg.org/legal.html

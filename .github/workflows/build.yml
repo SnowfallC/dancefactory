@@ -1,0 +1,55 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test desktop
+        run: .\mvnw.cmd --batch-mode test
+      - name: Package desktop JAR
+        run: .\mvnw.cmd --batch-mode package -DskipTests
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Test and assemble Android
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --console=plain
+
+  repository-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Reject committed build products and secrets
+        shell: bash
+        run: |
+          if git ls-files \
+            | grep -Ei '(^|/)(build|target|dist|\.gradle)/|\.(apk|aab|keystore|jks|p12|pem|key)$'; then
+            echo 'Generated artifacts or secret-like files are tracked.'
+            exit 1
+          fi
+          git diff-tree --check --no-commit-id --root -r HEAD

@@ -1,0 +1,39 @@
+name: Bug report
+description: 报告可复现的问题
+title: '[Bug] '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 安全漏洞请使用 SECURITY.md 中的私下报告渠道。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      options: [Windows, Android]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      placeholder: 1.1.5
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或样本说明
+      description: 上传前移除私人路径、媒体和工程信息。

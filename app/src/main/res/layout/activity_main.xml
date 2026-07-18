@@ -1,0 +1,623 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1A1A1F"
+    tools:context=".MainActivity">
+
+    <!-- 左侧：参考视频面板（可收起） -->
+    <LinearLayout
+        android:id="@+id/videoPanel"
+        android:layout_width="250dp"
+        android:layout_height="0dp"
+        android:background="#2A2A3F"
+        android:orientation="vertical"
+        android:elevation="2dp"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- 视频标题 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="参考视频"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp"/>
+
+        <!-- 视频播放器容器 -->
+        <FrameLayout
+            android:id="@+id/videoContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#1A1A1F">
+
+            <VideoView
+                android:id="@+id/referenceVideoView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"/>
+
+            <!-- 无视频时的提示 -->
+            <TextView
+                android:id="@+id/tvNoVideo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="点击导入视频"
+                android:textColor="#666666"
+                android:textSize="11sp"/>
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- 左侧切换按钮 -->
+    <ImageButton
+        android:id="@+id/btnToggleVideoPanel"
+        android:layout_width="24dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_media_previous"
+        android:background="#3A3A4F"
+        android:scaleType="centerInside"
+        android:padding="4dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/videoPanel"/>
+
+    <!-- 中间：3D视图区域（舞台） -->
+    <FrameLayout
+        android:id="@+id/viewportContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/btnToggleVideoPanel"
+        app:layout_constraintEnd_toStartOf="@id/btnToggleDancerPanel">
+
+        <android.opengl.GLSurfaceView
+            android:id="@+id/glSurfaceView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <!-- 舞者编号覆盖层 -->
+        <com.formationtool.app.view.DancerLabelOverlay
+            android:id="@+id/dancerLabelOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </FrameLayout>
+
+    <!-- 右侧切换按钮 -->
+    <ImageButton
+        android:id="@+id/btnToggleDancerPanel"
+        android:layout_width="24dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_media_next"
+        android:background="#3A3A4F"
+        android:scaleType="centerInside"
+        android:padding="4dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintEnd_toStartOf="@id/controlPanel"/>
+
+    <!-- 右侧：舞者控制面板（可收起） -->
+    <LinearLayout
+        android:id="@+id/controlPanel"
+        android:layout_width="120dp"
+        android:layout_height="0dp"
+        android:background="#2A2A3F"
+        android:orientation="vertical"
+        android:elevation="2dp"
+        android:padding="6dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- 标题和添加按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="舞者"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"/>
+
+            <Button
+                android:id="@+id/btnAddDancerQuick"
+                android:layout_width="24dp"
+                android:layout_height="20dp"
+                android:text="+"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:layout_marginStart="2dp"
+                style="@style/Widget.Material3.Button.TonalButton"/>
+
+        </LinearLayout>
+
+        <!-- 舞者网格 (5x4 紧凑布局) -->
+        <GridLayout
+            android:id="@+id/dancerGrid"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:columnCount="5"
+            android:rowCount="4"
+            android:alignmentMode="alignMargins"
+            android:columnOrderPreserved="false"/>
+
+        <!-- 编队按钮 -->
+        <Button
+            android:id="@+id/btnFormationPresets"
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:text="编队"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="2dp"
+            style="@style/Widget.Material3.Button.TonalButton"/>
+
+        <!-- 提示文字：长按可删除舞者 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="长按可编辑舞者"
+            android:textColor="#666666"
+            android:textSize="8sp"
+            android:gravity="end"
+            android:layout_marginEnd="2dp"/>
+
+    </LinearLayout>
+
+    <!-- 复制前帧按钮 - 左上角 -->
+    <Button
+        android:id="@+id/btnCopyPrevFrame"
+        android:layout_width="60dp"
+        android:layout_height="30dp"
+        android:text="复制前帧"
+        android:textSize="9sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:layout_constraintTop_toTopOf="@id/viewportContainer"
+        app:layout_constraintStart_toEndOf="@id/btnToggleVideoPanel"/>
+
+    <!-- 2D/3D切换按钮 - 右上角 -->
+    <Button
+        android:id="@+id/btnToggleView"
+        android:layout_width="45dp"
+        android:layout_height="30dp"
+        android:text="3D"
+        android:textSize="10sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:layout_constraintTop_toTopOf="@id/viewportContainer"
+        app:layout_constraintEnd_toStartOf="@id/btnToggleDancerPanel"/>
+
+    <!-- 捕捉按钮 -->
+    <Button
+        android:id="@+id/btnSnapToGrid"
+        android:layout_width="45dp"
+        android:layout_height="30dp"
+        android:text="捕捉"
+        android:textSize="10sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginEnd="6dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:layout_constraintTop_toTopOf="@id/viewportContainer"
+        app:layout_constraintEnd_toStartOf="@id/btnToggleView"/>
+
+    <!-- 预览模式按钮 -->
+    <Button
+        android:id="@+id/btnPreview"
+        android:layout_width="45dp"
+        android:layout_height="30dp"
+        android:text="预览"
+        android:textSize="10sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginEnd="6dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:layout_constraintTop_toTopOf="@id/viewportContainer"
+        app:layout_constraintEnd_toStartOf="@id/btnSnapToGrid"/>
+
+    <!-- 撤销按钮 -->
+    <Button
+        android:id="@+id/btnUndo"
+        android:layout_width="45dp"
+        android:layout_height="30dp"
+        android:text="撤销"
+        android:textSize="10sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:layout_marginEnd="6dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:layout_constraintTop_toTopOf="@id/viewportContainer"
+        app:layout_constraintEnd_toStartOf="@id/btnPreview"/>
+
+    <!-- 取消选中按钮 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabClearSelection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:contentDescription="取消选中"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        app:elevation="24dp"
+        app:backgroundTint="#FF4444"
+        app:tint="#FFFFFF"
+        app:fabSize="mini"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/btnToggleVideoPanel"/>
+
+    <!-- 悬浮设置按钮（主按钮） - 左下角 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@android:drawable/ic_menu_manage"
+        android:contentDescription="设置"
+        app:backgroundTint="#6200EE"
+        app:tint="#FFFFFF"
+        app:fabSize="mini"
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/btnToggleVideoPanel"/>
+
+    <!-- 子菜单：导出按钮 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabExport"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:src="@android:drawable/ic_menu_upload"
+        android:contentDescription="导出视频"
+        app:backgroundTint="#6200EE"
+        app:tint="#FFFFFF"
+        app:fabSize="mini"
+        android:visibility="gone"
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/fabSettings"/>
+
+    <!-- 子菜单：舞台尺寸按钮 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabStageSize"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:src="@android:drawable/ic_menu_crop"
+        android:contentDescription="舞台尺寸"
+        app:backgroundTint="#4CAF50"
+        app:tint="#FFFFFF"
+        app:fabSize="mini"
+        android:visibility="gone"
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/fabExport"/>
+
+    <!-- 子菜单：工程管理按钮 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabProject"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:src="@android:drawable/ic_menu_save"
+        android:contentDescription="工程管理"
+        app:backgroundTint="#FF9800"
+        app:tint="#FFFFFF"
+        app:fabSize="mini"
+        android:visibility="gone"
+        android:scaleX="0.8"
+        android:scaleY="0.8"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintStart_toEndOf="@id/fabStageSize"/>
+
+    <!-- F模式按钮 - 右下角（设置按钮的对面） -->
+    <Button
+        android:id="@+id/fabFKey"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="16dp"
+        android:text="F"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/fab_circle_background"
+        android:elevation="6dp"
+        android:enabled="false"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        app:layout_constraintBottom_toTopOf="@id/guidelineBottom"
+        app:layout_constraintEnd_toStartOf="@id/btnToggleDancerPanel"/>
+
+    <!-- 底部分割线：屏幕的 2/3 位置 -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineBottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.667"/>
+
+    <!-- 底部面板：时间轴（占屏幕三分之一） -->
+    <LinearLayout
+        android:id="@+id/bottomPanel"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#252530"
+        android:orientation="vertical"
+        android:elevation="8dp"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp"
+        app:layout_constraintTop_toBottomOf="@id/guidelineBottom"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- 可缩放的时间轴容器 -->
+            <FrameLayout
+                android:id="@+id/timelineContainer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#1E1E28">
+
+                <!-- 可滚动的波形内容 -->
+                <HorizontalScrollView
+                    android:id="@+id/timelineScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="none"
+                    android:fillViewport="true">
+
+                    <FrameLayout
+                        android:id="@+id/timelineContent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent">
+
+                        <!-- 波形和关键帧标签的容器 -->
+                        <LinearLayout
+                            android:id="@+id/waveformContainer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="vertical">
+
+
+
+                            <!-- 关键帧标签容器 -->
+                            <FrameLayout
+                                android:id="@+id/keyframeMarkersContainer"
+                                android:layout_width="match_parent"
+                                android:layout_height="14dp"/>
+
+                            <!-- 波形视图 -->
+                            <com.formationtool.app.view.WaveformView
+                                android:id="@+id/waveformView"
+                                android:layout_width="match_parent"
+                                android:layout_height="50dp"/>
+
+                            <!-- 导出范围选择条（波形下方） -->
+                            <com.formationtool.app.view.ExportRangeView
+                                android:id="@+id/exportRangeView"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"/>
+                        </LinearLayout>
+                    </FrameLayout>
+                </HorizontalScrollView>
+
+                <!-- 固定在中间的播放指针 -->
+                <View
+                    android:id="@+id/playheadIndicator"
+                    android:layout_width="2dp"
+                    android:layout_height="match_parent"
+                    android:background="#FF5555"
+                    android:layout_gravity="center_horizontal"/>
+            </FrameLayout>
+
+            <!-- 播放控制和音频名称 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+
+                <Button
+                    android:id="@+id/btnAudioPlayPause"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:text="▶"
+                    android:textSize="12sp"
+                    android:padding="0dp"
+                    style="@style/Widget.Material3.Button.TonalButton"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="6dp">
+
+                    <!-- 音频名称 -->
+                    <TextView
+                        android:id="@+id/tvAudioNameTimeline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="点击导入音频"
+                        android:textColor="#AAAAAA"
+                        android:textSize="8sp"
+                        android:maxLines="1"
+                        android:ellipsize="end"/>
+
+                    <!-- 时间显示 -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvCurrentTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="00:00"
+                            android:textColor="#FFFFFF"
+                            android:textSize="10sp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=" / "
+                            android:textColor="#888888"
+                            android:textSize="10sp"/>
+
+                        <TextView
+                            android:id="@+id/tvDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="00:00"
+                            android:textColor="#AAAAAA"
+                            android:textSize="10sp"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnCheckUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:text="更新"
+                    android:textSize="9sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:layout_marginStart="4dp"
+                    style="@style/Widget.Material3.Button.TonalButton"/>
+
+                <Button
+                    android:id="@+id/btnDeleteVideo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:text="删除"
+                    android:textSize="9sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:visibility="gone"
+                    android:layout_marginStart="4dp"
+                    style="@style/Widget.Material3.Button.TonalButton"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="本软件完全免费，谨防诈骗"
+                    android:textColor="#666666"
+                    android:textSize="8sp"
+                    android:layout_marginStart="6dp"/>
+
+            </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 预览模式的简易控制条 -->
+    <LinearLayout
+        android:id="@+id/previewControlBar"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:background="#252530"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="24dp"
+        android:elevation="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/btnPreviewPlayPause"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:text="▶"
+            android:textSize="18sp"
+            android:padding="0dp"
+            style="@style/Widget.Material3.Button.TonalButton"/>
+
+        <SeekBar
+            android:id="@+id/previewSeekBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="16dp"
+            android:progressTint="#6200EE"
+            android:thumbTint="#6200EE"
+            android:progressBackgroundTint="#444444"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp"/>
+
+        <TextView
+            android:id="@+id/tvPreviewTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00 / 00:00"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"/>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

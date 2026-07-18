@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 黑色背景 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M0,0h108v108h-108z"/>
+
+    <!-- 透视正方形舞台 - 外边框 -->
+    <!-- 前边缘（底部，较宽） -->
+    <path
+        android:strokeColor="#888888"
+        android:strokeWidth="2"
+        android:pathData="M25,75 L83,75"/>
+    <!-- 后边缘（顶部，较窄，营造透视感） -->
+    <path
+        android:strokeColor="#666666"
+        android:strokeWidth="1.5"
+        android:pathData="M38,38 L70,38"/>
+    <!-- 左边缘 -->
+    <path
+        android:strokeColor="#777777"
+        android:strokeWidth="1.8"
+        android:pathData="M25,75 L38,38"/>
+    <!-- 右边缘 -->
+    <path
+        android:strokeColor="#777777"
+        android:strokeWidth="1.8"
+        android:pathData="M83,75 L70,38"/>
+
+    <!-- 网格线 - 横向（从远到近） -->
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M40,44 L68,44"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M42,50 L66,50"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.6"
+        android:pathData="M44,56 L64,56"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.7"
+        android:pathData="M46,62 L62,62"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.8"
+        android:pathData="M48,68 L60,68"/>
+
+    <!-- 网格线 - 纵向（透视线） -->
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M44,38 L30,75"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M50,38 L40,75"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M54,38 L54,75"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M58,38 L68,75"/>
+    <path
+        android:strokeColor="#444444"
+        android:strokeWidth="0.5"
+        android:pathData="M64,38 L78,75"/>
+
+    <!-- 球形舞者 1 - 左前（白色-鸟，较大） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M31,65 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M32.5,63.5 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"/>
+
+    <!-- 球形舞者 2 - 中（橙色-果） -->
+    <path
+        android:fillColor="#FF8C00"
+        android:pathData="M49.5,54 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.5"
+        android:pathData="M51.2,52.5 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0"/>
+
+    <!-- 球形舞者 3 - 右前（蓝色-海，较大） -->
+    <path
+        android:fillColor="#1E90FF"
+        android:pathData="M67,65 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.4"
+        android:pathData="M68.5,63.5 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"/>
+
+    <!-- 粒子效果 - 左侧（白色） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M26,58 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.4"
+        android:pathData="M28,52 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.5"
+        android:pathData="M24,63 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"/>
+
+    <!-- 粒子效果 - 中间（橙色） -->
+    <path
+        android:fillColor="#FF8C00"
+        android:fillAlpha="0.5"
+        android:pathData="M48,46 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"/>
+    <path
+        android:fillColor="#FF8C00"
+        android:fillAlpha="0.6"
+        android:pathData="M56,48 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"/>
+    <path
+        android:fillColor="#FF8C00"
+        android:fillAlpha="0.4"
+        android:pathData="M52,50 a0.8,0.8 0 1,0 1.6,0 a0.8,0.8 0 1,0 -1.6,0"/>
+    <path
+        android:fillColor="#FF8C00"
+        android:fillAlpha="0.3"
+        android:pathData="M59,52 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0"/>
+
+    <!-- 粒子效果 - 右侧（蓝色） -->
+    <path
+        android:fillColor="#1E90FF"
+        android:fillAlpha="0.6"
+        android:pathData="M80,58 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"/>
+    <path
+        android:fillColor="#1E90FF"
+        android:fillAlpha="0.4"
+        android:pathData="M78,52 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0"/>
+    <path
+        android:fillColor="#1E90FF"
+        android:fillAlpha="0.5"
+        android:pathData="M82,63 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"/>
+
+    <!-- 额外装饰粒子 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M42,42 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.3"
+        android:pathData="M62,44 a0.7,0.7 0 1,0 1.4,0 a0.7,0.7 0 1,0 -1.4,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.25"
+        android:pathData="M35,48 a0.5,0.5 0 1,0 1,0 a0.5,0.5 0 1,0 -1,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.3"
+        android:pathData="M70,50 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0"/>
+
+</vector>

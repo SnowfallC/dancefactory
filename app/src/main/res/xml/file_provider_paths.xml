@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- External files directory (for exported files) -->
+    <external-files-path name="external_files" path="." />
+
+    <!-- External downloads directory (for temporary export files) -->
+    <external-files-path name="downloads" path="Download/" />
+
+    <!-- Internal files directory (for project audio/video files) -->
+    <files-path name="internal_files" path="." />
+
+    <!-- Cache directory (for temporary files) -->
+    <cache-path name="cache" path="." />
+</paths>

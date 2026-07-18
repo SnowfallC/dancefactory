@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/SnowfallC/dancefactory/security/advisories/new
+    about: 私下报告安全漏洞

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">舞形工坊</string>
+    <string name="add_formation">添加队形</string>
+    <string name="delete_formation">删除队形</string>
+    <string name="add_dancer">添加舞者</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="prev_formation">上一个队形</string>
+    <string name="next_formation">下一个队形</string>
+    <string name="camera_pitch">俯仰角</string>
+    <string name="camera_yaw">旋转角</string>
+    <string name="camera_hint">单指拖动旋转视角，双指捏合缩放，双击重置</string>
+    <string name="formation_name">队形名称</string>
+    <string name="dancer_name">舞者名称</string>
+    <string name="group_name">舞团名称</string>
+    <string name="stage_width">舞台宽度（米）</string>
+    <string name="stage_depth">舞台深度（米）</string>
+    <string name="dancer_count">舞者数量</string>
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    <string name="delete">删除</string>
+    <string name="save">保存</string>
+    <string name="export">导出</string>
+    <string name="import_">导入</string>
+    <string name="notes">注释</string>
+    <string name="add_prop">添加道具</string>
+    <string name="color_group">颜色分组</string>
+    <string name="transition_duration">过渡时长（秒）</string>
+</resources>

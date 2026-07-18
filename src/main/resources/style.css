@@ -1,0 +1,176 @@
+/*
+ * 队形编排工具 - 剪映风格主题
+ * 深色主题配色方案
+ */
+
+/* 根容器背景 */
+.root {
+    -fx-background-color: #1A1A1F;
+}
+
+/* ========== 菜单栏样式 ========== */
+.menu-bar {
+    -fx-background-color: #1E1E2E;
+    -fx-padding: 2 5 2 5;
+}
+
+/* 菜单项（文件、编辑等顶级菜单） */
+.menu-bar > .container > .menu-button {
+    -fx-background-color: transparent;
+}
+
+.menu-bar > .container > .menu-button > .label {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+}
+
+/* 菜单项悬停效果 */
+.menu-bar > .container > .menu-button:hover,
+.menu-bar > .container > .menu-button:focused,
+.menu-bar > .container > .menu-button:showing {
+    -fx-background-color: #3A3A4F;
+}
+
+/* 下拉菜单容器 */
+.context-menu {
+    -fx-background-color: #2A2A3F;
+    -fx-background-radius: 5;
+    -fx-padding: 5;
+}
+
+/* 下拉菜单项 */
+.menu-item {
+    -fx-background-color: transparent;
+}
+
+.menu-item > .label {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+}
+
+/* 下拉菜单项悬停 */
+.menu-item:hover,
+.menu-item:focused {
+    -fx-background-color: #4A4A5F;
+}
+
+/* 分隔线 */
+.separator {
+    -fx-background-color: #3A3A4F;
+}
+
+/* ========== 按钮样式 ========== */
+.button {
+    -fx-background-color: #3A3A4F;
+    -fx-text-fill: white;
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-padding: 8 15 8 15;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #4A4A5F;
+}
+
+.button:pressed {
+    -fx-background-color: #5A5A6F;
+}
+
+/* ========== 列表视图样式 ========== */
+.list-view {
+    -fx-background-color: #1E1E2E;
+    -fx-border-color: #3A3A4F;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-padding: 8 10 8 10;
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: #3A3A4F;
+}
+
+.list-view .list-cell:filled:hover {
+    -fx-background-color: #2A2A3F;
+}
+
+/* ========== 标签样式 ========== */
+.label {
+    -fx-text-fill: white;
+}
+
+/* ========== 文本输入框样式 ========== */
+.text-field, .text-area {
+    -fx-background-color: #2A2A3F;
+    -fx-text-fill: white;
+    -fx-border-color: #3A3A4F;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-prompt-text-fill: #888899;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-border-color: #5A5AFF;
+}
+
+/* ========== 滚动条样式 ========== */
+.scroll-bar {
+    -fx-background-color: #1A1A1F;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #3A3A4F;
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #4A4A5F;
+}
+
+.scroll-bar .increment-button, .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-background-color: #3A3A4F;
+}
+
+/* ========== 分隔条样式 ========== */
+.separator:horizontal .line {
+    -fx-border-color: #3A3A4F;
+    -fx-border-width: 1 0 0 0;
+}
+
+.separator:vertical .line {
+    -fx-border-color: #3A3A4F;
+    -fx-border-width: 0 1 0 0;
+}
+
+/* ========== 对话框样式 ========== */
+.dialog-pane {
+    -fx-background-color: #1E1E2E;
+}
+
+.dialog-pane > .content {
+    -fx-background-color: #1E1E2E;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-background-color: #1E1E2E;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: white;
+}
+
+/* ========== 提示框样式 ========== */
+.tooltip {
+    -fx-background-color: #2A2A3F;
+    -fx-text-fill: white;
+    -fx-background-radius: 5;
+}

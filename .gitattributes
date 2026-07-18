@@ -1,0 +1,25 @@
+* text=auto
+*.java text eol=lf
+*.kt text eol=lf
+*.xml text eol=lf
+*.gradle text eol=lf
+*.json text eol=lf
+*.properties text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+LICENSE text eol=lf
+.gitignore text eol=lf
+*.md text eol=lf
+*.ps1 text eol=lf
+*.py text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+/gradlew text eol=lf
+/mvnw text eol=lf
+*.png binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.mp4 binary
+*.ftproj binary
+*.jar binary

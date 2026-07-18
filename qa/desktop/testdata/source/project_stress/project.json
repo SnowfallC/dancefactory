@@ -1,0 +1,103 @@
+{
+  "id": "qa-stress-001",
+  "name": "QA Stress Project",
+  "dancerCount": 6,
+  "formations": [
+    {
+      "id": "f-stress-001",
+      "name": "关键帧 00:00",
+      "timestamp": 0,
+      "holdDuration": 1500,
+      "duration": 0,
+      "notes": "",
+      "dancers": [
+        { "id": "d-stress-01", "name": "D1", "x": -2.0, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-02", "name": "D2", "x": -1.2, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-03", "name": "D3", "x": -0.4, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-04", "name": "D4", "x": 0.4, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-05", "name": "D5", "x": 1.2, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-06", "name": "D6", "x": 2.0, "y": 0.0, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null }
+      ],
+      "props": []
+    },
+    {
+      "id": "f-stress-002",
+      "name": "关键帧 00:02",
+      "timestamp": 2000,
+      "holdDuration": 1500,
+      "duration": 500,
+      "notes": "",
+      "dancers": [
+        { "id": "d-stress-01", "name": "D1", "x": -2.0, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-02", "name": "D2", "x": -1.2, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-03", "name": "D3", "x": -0.4, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-04", "name": "D4", "x": 0.4, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-05", "name": "D5", "x": 1.2, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-06", "name": "D6", "x": 2.0, "y": 0.4, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null }
+      ],
+      "props": []
+    },
+    {
+      "id": "f-stress-003",
+      "name": "关键帧 00:04",
+      "timestamp": 4000,
+      "holdDuration": 1500,
+      "duration": 500,
+      "notes": "",
+      "dancers": [
+        { "id": "d-stress-01", "name": "D1", "x": -2.0, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-02", "name": "D2", "x": -1.2, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-03", "name": "D3", "x": -0.4, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-04", "name": "D4", "x": 0.4, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-05", "name": "D5", "x": 1.2, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-06", "name": "D6", "x": 2.0, "y": 0.8, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null }
+      ],
+      "props": []
+    },
+    {
+      "id": "f-stress-004",
+      "name": "关键帧 00:06",
+      "timestamp": 6000,
+      "holdDuration": 1500,
+      "duration": 500,
+      "notes": "",
+      "dancers": [
+        { "id": "d-stress-01", "name": "D1", "x": -2.0, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-02", "name": "D2", "x": -1.2, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-03", "name": "D3", "x": -0.4, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-04", "name": "D4", "x": 0.4, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-05", "name": "D5", "x": 1.2, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-06", "name": "D6", "x": 2.0, "y": 1.2, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null }
+      ],
+      "props": []
+    },
+    {
+      "id": "f-stress-005",
+      "name": "关键帧 00:08",
+      "timestamp": 8000,
+      "holdDuration": 1500,
+      "duration": 500,
+      "notes": "",
+      "dancers": [
+        { "id": "d-stress-01", "name": "D1", "x": -2.0, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-02", "name": "D2", "x": -1.2, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-03", "name": "D3", "x": -0.4, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-04", "name": "D4", "x": 0.4, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-05", "name": "D5", "x": 1.2, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null },
+        { "id": "d-stress-06", "name": "D6", "x": 2.0, "y": 1.6, "z": 0.5, "color": -1, "customStylePath": null, "rotation": 0.0, "scale": 1.0, "groupId": null }
+      ],
+      "props": []
+    }
+  ],
+  "stageWidth": 20.0,
+  "stageDepth": 14.0,
+  "musicPath": null,
+  "referenceVideoUri": null,
+  "audioUri": null,
+  "referenceVideoPath": null,
+  "audioPath": null,
+  "thumbnailPath": null,
+  "createdTime": 1700000002000,
+  "modifiedTime": 1700000002000,
+  "updateVersion": 0
+}

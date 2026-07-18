@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:gravity="center_vertical"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- 复选框 -->
+    <CheckBox
+        android:id="@+id/checkboxKeyframe"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:buttonTint="#4A9EFF"
+        android:layout_marginEnd="12dp"/>
+
+    <!-- 序号 -->
+    <TextView
+        android:id="@+id/tvKeyframeIndex"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:text="#1"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:gravity="center"/>
+
+    <!-- 时间信息 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="8dp">
+
+        <TextView
+            android:id="@+id/tvKeyframeTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00.000"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/tvKeyframeInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="绿 2.0s | 红 1.5s"
+            android:textColor="#999999"
+            android:textSize="11sp"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+    <!-- 当前帧标记 -->
+    <TextView
+        android:id="@+id/tvCurrentIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="当前"
+        android:textColor="#FFA500"
+        android:textSize="10sp"
+        android:background="#33FFA500"
+        android:paddingHorizontal="6dp"
+        android:paddingVertical="2dp"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone"/>
+
+    <!-- 删除按钮 -->
+    <Button
+        android:id="@+id/btnDeleteSingleKeyframe"
+        android:layout_width="52dp"
+        android:layout_height="32dp"
+        android:text="删除"
+        android:textSize="11sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingHorizontal="8dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        style="@style/Widget.Material3.Button.TonalButton"/>
+</LinearLayout>
