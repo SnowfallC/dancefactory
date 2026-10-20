@@ -84,6 +84,8 @@ class UndoManager {
         val snapshot = DanceGroupSnapshot().apply {
             id = group.id
             name = group.name
+            standardMode = group.standardMode
+            backstageVisible = group.backstageVisible
             stageWidth = group.stageWidth
             stageDepth = group.stageDepth
             dancerCount = group.dancerCount
@@ -133,6 +135,8 @@ class UndoManager {
 
         // 恢复基本属性
         currentGroup.dancerCount = snapshot.dancerCount
+        currentGroup.standardMode = snapshot.standardMode
+        currentGroup.backstageVisible = snapshot.backstageVisible
 
         // 恢复 formations
         for (fs in snapshot.formations) {
@@ -161,6 +165,8 @@ class UndoManager {
     private class DanceGroupSnapshot {
         var id: String = ""
         var name: String = ""
+        var standardMode = false
+        var backstageVisible = true
         var stageWidth: Float = 0f
         var stageDepth: Float = 0f
         var dancerCount: Int = 0

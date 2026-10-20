@@ -127,6 +127,11 @@ final class ReferenceVideoOptimizedExporter {
             command.add("-i");
             command.add(new File(tempDir, "frame_%05d.jpg").getAbsolutePath());
 
+            // 参考原片与队形帧序列使用相同的导出区间，避免短片被延长到原片结尾。
+            command.add("-ss");
+            command.add(ExportTimeUtil.formatTime(inPointMs));
+            command.add("-t");
+            command.add(ExportTimeUtil.formatTime(exportDurationMs));
             command.add("-i");
             command.add(referenceVideo.getAbsolutePath());
 
@@ -157,6 +162,8 @@ final class ReferenceVideoOptimizedExporter {
             command.add("-threads");
             command.add("0");
 
+            command.add("-t");
+            command.add(ExportTimeUtil.formatTime(exportDurationMs));
             command.add(outputFile.getAbsolutePath());
 
             commandRunner.run(command);

@@ -12,6 +12,8 @@ class OffscreenRenderer(
     private val stageDepth: Float,
     private val useFBO: Boolean = true  // 是否使用FBO，导出时设为false
 ) {
+    var backstageVisible = true
+    private var backstageRenderer: com.formationtool.app.renderer.BackstageRenderer? = null
     private var frameBufferId = IntArray(1)
     private var textureId = IntArray(1)
     private var depthBufferId = IntArray(1)
@@ -60,6 +62,7 @@ class OffscreenRenderer(
             GLES20.glFramebufferRenderbuffer(GLES20.GL_FRAMEBUFFER, GLES20.GL_DEPTH_ATTACHMENT, GLES20.GL_RENDERBUFFER, depthBufferId[0])
         }
 
+        backstageRenderer = com.formationtool.app.renderer.BackstageRenderer()
         // 初始化着色器
         initShaders()
 
@@ -155,6 +158,7 @@ class OffscreenRenderer(
 
         // 绘制网格
         drawGrid()
+        if (backstageVisible) backstageRenderer?.draw(vpMatrix, viewMatrix, stageWidth, stageDepth, numberRenderer)
 
         // 绘制舞者
         drawDancers()
@@ -176,6 +180,7 @@ class OffscreenRenderer(
 
         // 绘制网格
         drawGrid()
+        if (backstageVisible) backstageRenderer?.draw(vpMatrix, viewMatrix, stageWidth, stageDepth, numberRenderer)
 
         // 绘制舞者
         drawDancers()
@@ -513,5 +518,6 @@ class OffscreenRenderer(
         GLES20.glDeleteRenderbuffers(1, depthBufferId, 0)
         GLES20.glDeleteProgram(circleProgram)
         numberRenderer?.release()
+        backstageRenderer?.release()
     }
 }

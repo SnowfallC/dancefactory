@@ -193,6 +193,19 @@ internal fun MainActivity.updateDancerGrid(dancers: List<com.formationtool.app.m
                 }
 
                 val dancersCopy = dancers.toList()
+                val cells = maxOf(20, dancersCopy.size)
+                while (gridLayout.childCount > cells) gridLayout.removeViewAt(gridLayout.childCount - 1)
+                gridLayout.rowCount = (cells + 4) / 5
+                while (gridLayout.childCount < cells) {
+                    val index = gridLayout.childCount
+                    gridLayout.addView(createGridCell(index), GridLayout.LayoutParams().apply {
+                        width = 0
+                        height = GridLayout.LayoutParams.WRAP_CONTENT
+                        columnSpec = GridLayout.spec(index % 5, 1f)
+                        rowSpec = GridLayout.spec(index / 5)
+                        setMargins(1, 1, 1, 1)
+                    })
+                }
 
                 for (i in 0 until gridLayout.childCount) {
                     val cell = gridLayout.getChildAt(i) as? FrameLayout ?: continue
@@ -463,44 +476,13 @@ internal fun MainActivity.importAudio() {
 
 internal fun MainActivity.loadPresetGroup(groupName: String, dancers: List<DancerPreset>) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("加载组 $groupName")
-            .setMessage("是否加载组 $groupName（共 ${dancers.size} 个舞者）？请注意，加载后当前未保存的更改将丢失。")
-            .setPositiveButton("加载") { _, _ ->
-                // 用户确认后执行加载：1.保存当前项目 2.清除撤销栈 3.通过ViewModel加载新组
-                lifecycleScope.launch {
-                    try {
-                        // 1. 保存当前项目状态
-                        viewModel.clearAllDancers()
-
-                        // 2. 清除撤销历史栈
-                        kotlinx.coroutines.delay(300)
-
-                        // 3. 通过ViewModel加载选中的组，包含舞者位置和队形数据
-                        viewModel.batchAddDancers(dancers.map {
-                            Pair(it.name, it.color)
-                        })
-
-                        // 4. 重新初始化UI状态，包括重置音频播放器、更新舞者网格、刷新渲染
-                        kotlinx.coroutines.delay(300)
-
-                        runOnUiThread {
-                            // 加载组完成后显示Toast通知用户，若失败则显示错误信息
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "加载组失败", e)
-                        runOnUiThread {
-                            android.widget.Toast.makeText(
-                                this@loadPresetGroup,
-                                "加载组失败: ${e.message}",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            }
+            .setTitle("应用$groupName")
+            .setMessage("替换工程内的舞者？")
+            .setPositiveButton("应用") { _, _ -> viewModel.replaceDancerRoster(dancers.map { it.name to it.color }) }
             .setNegativeButton("取消", null)
             .show()
     }
+
 
 internal fun MainActivity.importVideo() {
         // 初始化自动保存定时器，定期保存项目数据
@@ -573,6 +555,8 @@ internal fun MainActivity.observeViewModel() {
                     return@collect
                 }
 
+                renderer.backstageVisible = group.backstageVisible
+                refreshEditingModeControls()
                 renderer.stageWidth = group.stageWidth
                 renderer.stageDepth = group.stageDepth
                 renderer.updateStageSize(group.stageWidth, group.stageDepth)
@@ -592,12 +576,14 @@ internal fun MainActivity.observeViewModel() {
 
                 // 获取视频文件时长并传入回调
                 waveformView.formations = group.formations
-                waveformView.audioDuration = viewModel.audioDuration.value
+                waveformView.standardMode = group.standardMode
+                waveformView.audioDuration = viewModel.timelineDuration()
             }
         }
 
         lifecycleScope.launch {
             viewModel.currentFormationIndex.collect { index ->
+                waveformView.selectedFormationIndex = index
                 val group = viewModel.currentGroup.value
                 group?.let {
                     if (index in it.formations.indices) {
@@ -626,13 +612,16 @@ internal fun MainActivity.observeViewModel() {
 
         lifecycleScope.launch {
             viewModel.audioDuration.collect { duration ->
+                if (duration > 0 && viewModel.currentGroup.value?.standardMode == true && timelineZoom <= 3f) {
+                    timelineZoom = (duration / 20000f).coerceIn(3f, 15f)
+                }
                 findViewById<TextView>(R.id.tvDuration).text = formatTime(duration)
                 // 初始化音频播放控制，包括创建MediaPlayer、设置进度条和播放/暂停按钮
                 if (duration > 0) {
                     updateTimelineZoom()
                 }
                 // 获取视频文件时长并传入回调方法
-                waveformView.audioDuration = duration
+                waveformView.audioDuration = viewModel.timelineDuration()
                 // 获取视频文件时长并设置导入和导出范围
                 val exportRangeView = findViewById<com.formationtool.app.view.ExportRangeView>(R.id.exportRangeView)
                 exportRangeView.audioDuration = duration
@@ -656,6 +645,7 @@ internal fun MainActivity.observeViewModel() {
 
         audioPlayingObserverJob = lifecycleScope.launch {
             audioManager.isPlaying.collect { isPlaying ->
+                refreshEditingModeControls()
                 findViewById<Button>(R.id.btnAudioPlayPause).text = if (isPlaying) "⏸" else "▶"
 
                 // 切换时更新按钮图标和状态
@@ -705,7 +695,6 @@ internal fun MainActivity.showAddDancerDialog() {
 
         DancerDialogController.showAddDancerDialog(
             context = this,
-            hasMedia = currentAudioUri != null || hasReferenceVideo,
             presetColors = presetColors,
             presetOptions = presetOptions,
             onPickColor = this::showColorPickerDialog,
@@ -717,7 +706,7 @@ internal fun MainActivity.showColorPickerDialog(initialColor: Int, onColorSelect
         val colorPickerView = com.formationtool.app.view.ColorPickerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                600.dpToPx()
+                (resources.displayMetrics.heightPixels * 0.6f).toInt()
             )
             setColor(initialColor)
         }
@@ -739,6 +728,7 @@ internal fun MainActivity.showStageSizeDialog() {
             renderer = renderer,
             autoSnap = autoSnap,
             onStageSizeChanged = { width, depth -> viewModel.updateStageSize(width, depth) },
+            onBackstageChanged = { visible -> viewModel.setBackstageVisible(visible) },
             onAutoSnapChanged = { enabled -> autoSnap = enabled }
         )
     }
@@ -779,24 +769,17 @@ internal fun MainActivity.toggleMenu() {
     }
 
 internal fun MainActivity.showFormationPresetsDialog() {
-        // 初始化自动保存任务，定期执行数据持久化
-        if (currentAudioUri == null && !hasReferenceVideo) {
-            android.widget.Toast.makeText(this, "音频未就绪，请先导入音频/视频文件", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val presetCounts = intArrayOf(3, 5, 7, 9, 11)
-        val options = presetCounts.map { "设置为 $it 人" }.toTypedArray()
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("选择预设舞者方案")
-            .setItems(options) { _, which ->
-                val targetCount = presetCounts.getOrNull(which) ?: return@setItems
-                setDancerCount(targetCount)
+    MaterialAlertDialogBuilder(this).setTitle("预设")
+        .setItems(arrayOf("快速人数", "自定义预设")) { _, which ->
+            if (which == 1) showCustomTeamPresets() else {
+                val counts = intArrayOf(3, 5, 7, 9, 11)
+                MaterialAlertDialogBuilder(this).setTitle("舞者人数")
+                    .setItems(counts.map { "$it 人" }.toTypedArray()) { _, index -> setDancerCount(counts[index]) }
+                    .setNegativeButton("取消", null).show()
             }
-            .setNegativeButton("取消", null)
-            .show()
-    }
+        }.setNegativeButton("取消", null).show()
+}
+
 
 internal fun MainActivity.copyPreviousKeyframe() {
         FormationActionController.copyPreviousKeyframe(
@@ -1040,6 +1023,9 @@ internal fun MainActivity.handleVideoFile(uri: Uri) {
 
 internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri) {
         try {
+            videoPlaybackSyncJob?.cancel()
+            videoSeekSyncJob?.cancel()
+            referenceVideoView.stopPlayback()
             // 保存音频URI
             referenceVideoUri = uri
             currentAudioUri = uri  // 保存音频URI
@@ -1053,11 +1039,16 @@ internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri) {
             referenceVideoView.visibility = View.VISIBLE
 
             // 1. 保存当前项目到指定目录
-            referenceVideoView.setVideoURI(uri)
+            referenceVideoView.setOnErrorListener { _, what, extra ->
+                hasReferenceVideo = false
+                Toast.makeText(this, "当前设备无法解码此视频（$what/$extra），请使用 H.264/AAC 的 MP4", Toast.LENGTH_LONG).show()
+                true
+            }
             referenceVideoView.setOnPreparedListener { mp ->
                 // 更新视频导出范围和音频URI
                 mp.setVolume(0f, 0f)
             }
+            referenceVideoView.setVideoURI(uri)
 
             // 2. 清除撤销历史记录
             val success = audioManager.loadAudio(uri)
@@ -1079,6 +1070,7 @@ internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri) {
             videoPlaybackSyncJob?.cancel()
             videoPlaybackSyncJob = lifecycleScope.launch {
                 audioManager.isPlaying.collect { isPlaying ->
+                refreshEditingModeControls()
                     if (hasReferenceVideo) {
                         if (isPlaying) {
                             referenceVideoView.start()

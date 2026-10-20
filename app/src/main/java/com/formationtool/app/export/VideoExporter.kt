@@ -32,6 +32,8 @@ class VideoExporter(
     internal val fps: Int = 30,
     internal val bitRate: Int = 8_000_000
 ) {
+    var backstageVisible = true
+
     companion object {
         private const val TAG = "VideoExporter"
         private const val MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC
@@ -152,6 +154,8 @@ class VideoExporter(
             leftRenderer = OffscreenRenderer(halfWidth, height, stageWidth, stageDepth, false) // 不创建FBO
             rightRenderer = OffscreenRenderer(halfWidth, height, stageWidth, stageDepth, false)
 
+            leftRenderer?.backstageVisible = backstageVisible
+            rightRenderer?.backstageVisible = backstageVisible
             leftRenderer?.init()
             rightRenderer?.init()
 

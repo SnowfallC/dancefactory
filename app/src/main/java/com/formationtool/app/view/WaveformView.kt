@@ -66,6 +66,31 @@ class WaveformView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    var selectedFormationIndex = 0
+        set(value) { field = value; invalidate() }
+    var onFormationSelected: ((Int) -> Unit)? = null
+    var onTransitionTapped: ((Int) -> Unit)? = null
+    var onTimelineTouch: ((MotionEvent) -> Unit)? = null
+    private var touchDownRawX = 0f
+    private var touchDownRawY = 0f
+    private var timelineGestureMoved = false
+    private val density = resources.displayMetrics.density
+    private val clipPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val clipText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = 12f * resources.displayMetrics.scaledDensity
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    private val clipColors = intArrayOf(0xFF2463D6.toInt(), 0xFF087F8C.toInt(), 0xFF7544CC.toInt())
+
+    var standardMode: Boolean = false
+        set(value) {
+            field = value
+            holdRegionPaint.color = if (value) 0x5960A5FA else 0x4000FF00
+            transitionRegionPaint.color = if (value) 0x4094A3B8 else 0x40FF4444
+            invalidate()
+        }
+
     var waveformData: FloatArray = FloatArray(0)
         set(value) {
             field = value
@@ -173,7 +198,7 @@ class WaveformView @JvmOverloads constructor(
     }
 
     // 边界点击容差（像素）
-    private val boundaryTouchTolerance = 30f
+    private val boundaryTouchTolerance = 22f * resources.displayMetrics.density
 
     // 拖动最小移动距离（像素）- 防止点击时触摸抖动导致意外移动
     private val minDragDistance = 5f
@@ -184,7 +209,6 @@ class WaveformView @JvmOverloads constructor(
      */
     fun cancelPendingLongPress() {
         removeCallbacks(longPressRunnable)
-        longPressTriggered = false
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -207,15 +231,33 @@ class WaveformView @JvmOverloads constructor(
             drawFKeyMarkRegion(canvas, viewWidth, viewHeight)
         }
 
-        // 绘制中心线
-        canvas.drawLine(0f, centerY, viewWidth, centerY, centerLinePaint)
-
-        // 绘制波形或提示文字
-        if (waveformData.isNotEmpty()) {
-            drawWaveform(canvas, viewWidth, viewHeight, centerY)
+        if (standardMode) {
+            // 波形与队形共用同一轨道，文字和手柄最后绘制以保持清晰。
+            if (waveformData.isNotEmpty()) {
+                waveformPaint.color = 0x70FFFFFF
+                drawWaveform(canvas, viewWidth, viewHeight * 0.6f, centerY)
+            }
+            if (formations.isNotEmpty() && audioDuration > 0) {
+                drawClipTrack(canvas, viewWidth, viewHeight, true)
+            }
         } else {
-            // 没有波形数据时显示提示
-            canvas.drawText("点击导入音频", viewWidth / 2, centerY + 16f, hintTextPaint)
+            canvas.drawLine(0f, centerY, viewWidth, centerY, centerLinePaint)
+            waveformPaint.color = 0x804A9EFF.toInt()
+            if (waveformData.isNotEmpty()) {
+                drawWaveform(canvas, viewWidth, viewHeight, centerY)
+            } else {
+                canvas.drawText("点击导入音频", viewWidth / 2, centerY + 16f, hintTextPaint)
+            }
+            if (audioDuration > 0) {
+                formations.forEachIndexed { index, formation ->
+                    val start = formation.timestamp.toFloat() / audioDuration * viewWidth
+                    val end = (formation.timestamp + formation.holdDuration).toFloat() / audioDuration * viewWidth
+                    val label = "队形 ${index + 1}"
+                    if (end - start > clipText.measureText(label) + 12 * density) {
+                        canvas.drawText(label, start + 6 * density, 20 * density, clipText)
+                    }
+                }
+            }
         }
     }
 
@@ -227,6 +269,10 @@ class WaveformView @JvmOverloads constructor(
      */
     private fun drawRegions(canvas: Canvas, width: Float, height: Float) {
         if (audioDuration <= 0 || width <= 0) return
+        if (standardMode) {
+            drawClipTrack(canvas, width, height, false)
+            return
+        }
 
         formations.forEachIndexed { index, formation ->
             val timestamp = formation.timestamp
@@ -274,8 +320,48 @@ class WaveformView @JvmOverloads constructor(
     }
 
     /**
-     * 绘制F键标记的临时区域（实时预览）
+     * 在同一轨道中分层绘制区间底色、波形和操作控件。
      */
+    private fun drawClipTrack(canvas: Canvas, width: Float, height: Float, foreground: Boolean) {
+        val top = 4f * density
+        val bottom = height - 4f * density
+        formations.forEachIndexed { index, formation ->
+            val start = formation.timestamp.toFloat() / audioDuration * width
+            val end = (formation.timestamp + formation.holdDuration).toFloat() / audioDuration * width
+            val transitionStart = (formation.timestamp - formation.duration).toFloat() / audioDuration * width
+            if (index > 0 && start > transitionStart) {
+                clipPaint.style = Paint.Style.FILL
+                clipPaint.color = 0xFF8A4A20.toInt()
+                if (!foreground) canvas.drawRoundRect(transitionStart + density, top + 3 * density, start - density, bottom - 3 * density, 5 * density, 5 * density, clipPaint)
+                if (foreground && start - transitionStart > 36 * density) canvas.drawText("过渡", transitionStart + 6 * density, top + 20 * density, clipText)
+            }
+            if (end <= start) return@forEachIndexed
+            clipPaint.style = Paint.Style.FILL
+            clipPaint.color = clipColors[index % clipColors.size]
+            if (!foreground) canvas.drawRoundRect(start + density, top, end - density, bottom, 6 * density, 6 * density, clipPaint)
+            if (!foreground) return@forEachIndexed
+            val label = "队形 ${index + 1}"
+            val handleWidth = 10 * density
+            if (end - start > clipText.measureText(label) + 28 * density) {
+                canvas.drawText(label, start + handleWidth + 5 * density, top + 18 * density, clipText)
+                if (bottom - top > 35 * density) {
+                    val timePaint = Paint(clipText).apply { textSize = 10 * density; typeface = android.graphics.Typeface.DEFAULT }
+                    canvas.drawText(String.format(java.util.Locale.ROOT, "%.1f s", formation.holdDuration / 1000f), start + handleWidth + 5 * density, bottom - 6 * density, timePaint)
+                }
+            }
+            if (index == selectedFormationIndex) {
+                clipPaint.color = android.graphics.Color.WHITE
+                clipPaint.style = Paint.Style.STROKE
+                clipPaint.strokeWidth = 2 * density
+                canvas.drawRoundRect(start + density, top, end - density, bottom, 6 * density, 6 * density, clipPaint)
+                clipPaint.style = Paint.Style.FILL
+                val actualHandle = minOf(handleWidth, (end - start) / 3)
+                if (index > 0) canvas.drawRect(start + density, top + 4 * density, start + actualHandle, bottom - 4 * density, clipPaint)
+                canvas.drawRect(end - actualHandle, top + 4 * density, end - density, bottom - 4 * density, clipPaint)
+            }
+        }
+    }
+
     private fun drawFKeyMarkRegion(canvas: Canvas, width: Float, height: Float) {
         if (audioDuration <= 0) return
 
@@ -346,83 +432,89 @@ class WaveformView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // 没有音频时，点击任意位置触发导入
-        if (waveformData.isEmpty()) {
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    touchDownX = event.x
-                    touchDownY = event.y
-                    return true  // 消费事件以接收ACTION_UP
-                }
-                MotionEvent.ACTION_UP -> {
-                    val dx = event.x - touchDownX
-                    val dy = event.y - touchDownY
-                    // 如果没有移动太多，视为点击
-                    if (kotlin.math.sqrt(dx * dx + dy * dy) < moveThreshold) {
-                        onClickToImport?.invoke()
-                    }
-                    return true
-                }
-            }
-            return super.onTouchEvent(event)
-        }
-
-        // 有音频时的正常处理逻辑
-        when (event.action) {
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                touchDownTime = System.currentTimeMillis()
                 touchDownX = event.x
                 touchDownY = event.y
+                touchDownRawX = event.rawX
+                touchDownRawY = event.rawY
+                timelineGestureMoved = false
                 longPressTriggered = false
-
-                // 检测是否点击到边界
-                val hitBoundary = handleTouchDown(event.x, event.y)
-                if (hitBoundary) {
-                    // 点到边界，拦截事件，进入拖动模式
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                    return true
+                parent?.requestDisallowInterceptTouchEvent(true)
+                onTimelineTouch?.invoke(event)
+                if (!handleTouchDown(event.x, event.y)) {
+                    postDelayed(longPressRunnable, longPressThreshold)
                 }
-
-                // 没有点到边界，启动长按检测，但不拦截事件
-                postDelayed(longPressRunnable, longPressThreshold)
-                // 返回false，让父容器处理滚动
-                return false
+                return true
+            }
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP -> {
+                timelineGestureMoved = true
+                removeCallbacks(longPressRunnable)
+                if (isDraggingBoundary) handleTouchUp()
+                onTimelineTouch?.invoke(event)
+                return true
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isDraggingBoundary) {
-                    // 拖动边界模式：取消长按并处理拖动
+                if (event.pointerCount > 1) {
+                    timelineGestureMoved = true
+                    removeCallbacks(longPressRunnable)
+                    onTimelineTouch?.invoke(event)
+                } else if (isDraggingBoundary) {
                     removeCallbacks(longPressRunnable)
                     handleTouchMove(event.x)
-                    return true
+                } else {
+                    if (abs(event.rawX - touchDownRawX) > 8 * density || abs(event.rawY - touchDownRawY) > 8 * density) {
+                        timelineGestureMoved = true
+                        removeCallbacks(longPressRunnable)
+                    }
+                    onTimelineTouch?.invoke(event)
                 }
-
-                // 如果移动距离超过阈值，取消长按
-                val dx = event.x - touchDownX
-                val dy = event.y - touchDownY
-                if (kotlin.math.sqrt(dx * dx + dy * dy) > moveThreshold) {
-                    removeCallbacks(longPressRunnable)
-                }
-                return false  // 让父容器处理滚动
+                return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                // 无论如何都取消长按
                 removeCallbacks(longPressRunnable)
                 parent?.requestDisallowInterceptTouchEvent(false)
-
                 if (isDraggingBoundary) {
+                    if (event.actionMasked == MotionEvent.ACTION_UP) handleTouchMove(event.x, true)
                     handleTouchUp()
-                    return true
+                } else {
+                    onTimelineTouch?.invoke(event)
+                    if (event.actionMasked == MotionEvent.ACTION_UP && !timelineGestureMoved && !longPressTriggered) {
+                        performClick()
+                        handleRegionTap(touchDownX)
+                    }
                 }
-
-                if (longPressTriggered) {
-                    longPressTriggered = false
-                    return true
-                }
-
-                return false
+                longPressTriggered = false
+                return true
             }
         }
-        return super.onTouchEvent(event)
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+
+    private fun handleRegionTap(x: Float) {
+        if (waveformData.isEmpty() && !standardMode) {
+            onClickToImport?.invoke()
+            return
+        }
+        if (audioDuration <= 0 || getEffectiveWidth() <= 0) return
+        val time = x / getEffectiveWidth() * audioDuration
+        for (index in formations.indices.reversed()) {
+            val formation = formations[index]
+            if (index > 0 && time >= formation.timestamp - formation.duration && time < formation.timestamp) {
+                onTransitionTapped?.invoke(index)
+                return
+            }
+            if (time >= formation.timestamp && time < formation.timestamp + formation.holdDuration) {
+                selectedFormationIndex = index
+                onFormationSelected?.invoke(index)
+                return
+            }
+        }
     }
 
     /**
@@ -483,7 +575,8 @@ class WaveformView @JvmOverloads constructor(
         hasDraggedBeyondThreshold = false
 
         // 从后往前遍历（与电脑端保持一致）
-        for (index in formations.indices.reversed()) {
+        val candidates = if (standardMode) listOf(selectedFormationIndex).filter { it in formations.indices } else formations.indices.reversed().toList()
+        for (index in candidates) {
             val formation = formations[index]
             val startTime = formation.timestamp
             val holdEndTime = startTime + formation.holdDuration
@@ -491,7 +584,7 @@ class WaveformView @JvmOverloads constructor(
             val holdEndX = (holdEndTime.toFloat() / audioDuration * viewWidth)
 
             // 检测绿色前边界（timestamp）- 第一个关键帧(00:00)不能移动
-            if (index > 0 && abs(x - startX) < boundaryTouchTolerance) {
+            if (index > 0 && abs(x - startX) < boundaryTouchTolerance && abs(x - startX) <= abs(x - holdEndX)) {
                 // 通知外部保存撤销快照
                 onBoundaryDragStart?.invoke()
 
@@ -525,7 +618,7 @@ class WaveformView @JvmOverloads constructor(
     /**
      * 处理拖动
      */
-    private fun handleTouchMove(x: Float) {
+    private fun handleTouchMove(x: Float, force: Boolean = false) {
         if (draggingFormationIndex < 0 || draggingFormationIndex >= formations.size) return
 
         val viewWidth = getEffectiveWidth()
@@ -544,7 +637,7 @@ class WaveformView @JvmOverloads constructor(
 
         // 节流回调：只在距离上次回调超过50ms时触发
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastCallbackTime >= callbackThrottleMs) {
+        if (force || currentTime - lastCallbackTime >= callbackThrottleMs) {
             lastCallbackTime = currentTime
 
             if (isDraggingStartBoundary) {

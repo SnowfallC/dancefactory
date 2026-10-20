@@ -74,7 +74,7 @@ if not defined GRADLE_CMD (
     exit /b 1
 )
 
-for /f "tokens=2 delims= " %%V in ('findstr /R /C:"versionName" "%PROJECT_DIR%app\build.gradle"') do (
+for /f "tokens=2 delims= " %%V in ('findstr /R /C:"^[ ]*versionName " "%PROJECT_DIR%app\build.gradle"') do (
     set "APP_VERSION=%%~V"
 )
 set "APP_VERSION=%APP_VERSION:"=%"

@@ -148,22 +148,24 @@ public final class MediaProcessingService {
                 ffmpegPath,
                 "-hide_banner",
                 "-i", inputFile.getAbsolutePath(),
-                // Do not rely on the source container extension.  Explicit maps
-                // retain the primary video and an audio stream only when present.
+                // 保留主视频和首条可选音轨，兼容无声视频。
                 "-map", "0:v:0",
-                "-map", "0:a?",
+                "-map", "0:a:0?",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
-                "-profile:v", "high",
-                // yuv420p requires even dimensions; this preserves the source
-                // size whenever it is already compatible.
-                "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1",
+                "-profile:v", "main",
+                "-level:v", "4.1",
+                "-tag:v", "avc1",
+                "-r", "30",
+                // 限制为偶数尺寸和最高 1080p，保持比例且不放大小分辨率视频。
+                "-vf", "scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1",
                 "-preset", "fast",
                 "-crf", "21",
                 "-c:a", "aac",
                 "-b:a", "192k",
                 "-ar", "48000",
-                "-map_metadata", "0",
+                "-ac", "2",
+                "-map_metadata", "-1",
                 "-sn",
                 "-dn",
                 "-movflags", "+faststart",
@@ -171,6 +173,7 @@ public final class MediaProcessingService {
                 outputFile.getAbsolutePath()
             );
 
+            System.out.println("[视频转换] 命令参数=" + processBuilder.command());
             processBuilder.redirectErrorStream(true);
             Process process = processBuilder.start();
 
@@ -184,10 +187,10 @@ public final class MediaProcessingService {
             int exitCode = process.waitFor();
 
             if (exitCode == 0 && outputFile.exists() && outputFile.length() > 0) {
-                System.out.println("[INFO] 视频转换成功");
+                System.out.println("[视频转换] 成功 文件=" + outputFile.getAbsolutePath() + " 大小=" + outputFile.length());
                 return outputFile;
             } else {
-                System.err.println("[ERROR] FFmpeg转换失败");
+                System.err.println("[视频转换] 失败 exitCode=" + exitCode + " 文件=" + outputFile.getAbsolutePath());
                 return null;
             }
 
@@ -197,85 +200,7 @@ public final class MediaProcessingService {
         }
     }
 
-    /**
-     * 生成或复用预览代理视频（用于拖动时间轴时提升跟手性）
-     * 说明：
-     * - 代理文件仅用于编辑预览，不影响导出源视频
-     * - 采用低码率 + 低分辨率，优先保证 seek 响应速度
-     *
-     * @param sourceVideo 源视频文件
-     * @return 代理视频文件，失败返回 null
-     */
-    public File createOrGetPreviewProxy(File sourceVideo) {
-        try {
-            if (sourceVideo == null || !sourceVideo.exists() || !sourceVideo.isFile()) {
-                return null;
-            }
 
-            String ffmpegPath = FFmpegUtil.getFFmpegPath();
-            if (ffmpegPath == null) {
-                System.err.println("[代理视频] FFmpeg 不可用，跳过代理生成");
-                return null;
-            }
-
-            // 基于源文件路径+修改时间+大小生成稳定键，支持缓存复用
-            String cacheKey = sourceVideo.getAbsolutePath() + "|" + sourceVideo.lastModified() + "|" + sourceVideo.length();
-            String proxyName = "proxy_" + Integer.toHexString(cacheKey.hashCode()) + ".mp4";
-            File proxyDir = new File(System.getProperty("java.io.tmpdir"), "formationtool_proxy");
-            if (!proxyDir.exists() && !proxyDir.mkdirs()) {
-                System.err.println("[代理视频] 无法创建代理目录: " + proxyDir.getAbsolutePath());
-                return null;
-            }
-
-            File proxyFile = new File(proxyDir, proxyName);
-            if (proxyFile.exists() && proxyFile.length() > 0) {
-                System.out.println("[代理视频] 复用缓存代理: " + proxyFile.getAbsolutePath());
-                return proxyFile;
-            }
-
-            System.out.println("[代理视频] 开始生成代理: " + sourceVideo.getName());
-
-            // 低码率代理：640宽 + 视频无音频，优先 seek 性能
-            ProcessBuilder processBuilder = new ProcessBuilder(
-                ffmpegPath,
-                "-i", sourceVideo.getAbsolutePath(),
-                "-vf", "scale=640:-2",
-                "-c:v", "libx264",
-                "-preset", "ultrafast",
-                "-crf", "34",
-                "-b:v", "700k",
-                "-maxrate", "900k",
-                "-bufsize", "1800k",
-                "-an",
-                "-movflags", "+faststart",
-                "-y",
-                proxyFile.getAbsolutePath()
-            );
-
-            processBuilder.redirectErrorStream(true);
-            Process process = processBuilder.start();
-
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[代理视频-FFmpeg] " + line);
-                }
-            }
-
-            int exitCode = process.waitFor();
-            if (exitCode == 0 && proxyFile.exists() && proxyFile.length() > 0) {
-                System.out.println("[代理视频] 生成成功: " + proxyFile.getAbsolutePath());
-                return proxyFile;
-            }
-
-            System.err.println("[代理视频] 生成失败，退出码: " + exitCode);
-            return null;
-        } catch (Exception e) {
-            System.err.println("[代理视频] 生成异常: " + e.getMessage());
-            return null;
-        }
-    }
 
     /**
      * 提取音频波形数据

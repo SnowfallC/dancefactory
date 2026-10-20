@@ -175,143 +175,122 @@ internal fun MainActivity.formatTime(ms: Long): String {
     }
 
 internal fun MainActivity.updateKeyframeLabels(formations: MutableList<com.formationtool.app.model.Formation>) {
-        val container = findViewById<FrameLayout>(R.id.keyframeMarkersContainer)
-        container.removeAllViews()
+    // 编号直接绘制在队形色块内，不再使用独立标签。
+    findViewById<FrameLayout>(R.id.keyframeMarkersContainer).visibility = View.GONE
+    waveformView.formations = formations
+}
 
-        val duration = viewModel.audioDuration.value
-        if (duration <= 0) return
-
-        // 计算波形宽度（和标签容器宽度一致）
-        val sidebarWidth = getSidebarWidth()
-        val baseWidth = resources.displayMetrics.widthPixels - sidebarWidth
-        val scaledWidth = (baseWidth * timelineZoom).toInt()
-
-        formations.forEachIndexed { index, formation ->
-            // 计算标签在波形中的X位置（直接对应波形位置）
-            val progress = formation.timestamp.toFloat() / duration.toFloat()
-            val xPos = (scaledWidth * progress).toInt()
-
-            // 判断是否是当前选中的帧
-            val isCurrentFrame = index == viewModel.currentFormationIndex.value
-
-            val label = TextView(this).apply {
-                text = formatTime(formation.timestamp)
-                textSize = 9f
-                setTextColor(android.graphics.Color.WHITE)
-                setPadding(4, 1, 4, 1)
-
-                // 颜色逻辑：当前帧=黄色，第0帧=灰色，其他=蓝色
-                setBackgroundColor(
-                    when {
-                        isCurrentFrame -> android.graphics.Color.parseColor("#FFA500")  // 黄色
-                        index == 0 -> android.graphics.Color.parseColor("#666666")  // 灰色
-                        else -> android.graphics.Color.parseColor("#4A9EFF")  // 蓝色
-                    }
-                )
-
-                // 点击事件：跳转到该关键帧
-                setOnClickListener {
-                    viewModel.seekTo(formation.timestamp)
-                    viewModel.switchToFormation(index)
-                    audioManager.seekTo(formation.timestamp)
-                    scrollToTime(formation.timestamp)
-                    syncReferenceVideoPosition(formation.timestamp)
-                }
-
-                // 长按事件：弹出多选对话框
-                setOnLongClickListener {
-                    if (index == 0) {
-                        android.widget.Toast.makeText(
-                            this@updateKeyframeLabels,
-                            "初始帧不能删除",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        showKeyframeMultiSelectDialog()
-                    }
-                    true
-                }
-            }
-
-            // 设置标签位置
-            val params = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                leftMargin = (xPos - 18).coerceAtLeast(0)  // 居中显示，不超出左边界
-                topMargin = 1
-            }
-            label.layoutParams = params
-
-            container.addView(label)
+internal fun MainActivity.showFormationActions(index: Int) {
+    val group = viewModel.currentGroup.value ?: return
+    val formation = group.formations.getOrNull(index) ?: return
+    val density = resources.displayMetrics.density
+    fun dp(value: Int) = (value * density).toInt()
+    val panel = android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(android.graphics.Color.parseColor("#242938"))
+            cornerRadius = dp(14).toFloat()
         }
     }
+    val dialog = android.app.Dialog(this)
+    dialog.setCanceledOnTouchOutside(false)
+    val header = android.widget.LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+    header.addView(TextView(this).apply {
+        text = "队形 ${index + 1}"
+        gravity = android.view.Gravity.CENTER_VERTICAL
+        textSize = 16f
+        setTextColor(android.graphics.Color.WHITE)
+        setPadding(dp(12), 0, 0, 0)
+    }, android.widget.LinearLayout.LayoutParams(0, dp(40), 1f))
+    header.addView(TextView(this).apply {
+        text = "×"
+        textSize = 24f
+        gravity = android.view.Gravity.CENTER
+        contentDescription = "关闭"
+        setTextColor(android.graphics.Color.parseColor("#A7B0C4"))
+        setOnClickListener { dialog.dismiss() }
+    }, android.widget.LinearLayout.LayoutParams(dp(40), dp(40)))
+    panel.addView(header)
+    fun addAction(label: String, destructive: Boolean = false, action: (Int) -> Unit) {
+        panel.addView(TextView(this).apply {
+            text = label
+            textSize = 14f
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(12), 0)
+            setTextColor(android.graphics.Color.parseColor(if (destructive) "#FF8585" else "#E4EAF5"))
+            val selectable = android.util.TypedValue()
+            theme.resolveAttribute(android.R.attr.selectableItemBackground, selectable, true)
+            setBackgroundResource(selectable.resourceId)
+            setOnClickListener {
+                dialog.dismiss()
+                // 按稳定标识定位，避免菜单打开期间索引变化操作错队形。
+                val currentIndex = viewModel.currentGroup.value?.formations?.indexOfFirst { it.id == formation.id } ?: -1
+                if (currentIndex >= 0) action(currentIndex)
+            }
+        }, android.widget.LinearLayout.LayoutParams(-1, dp(44)))
+    }
+    addAction("调整保持时长") { showAdjustHoldDurationDialog(it, formation) }
+    if (group.formations.size > 1) addAction("删除本队形", true) { viewModel.deleteKeyframe(it) }
+    dialog.setContentView(panel)
+    dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+    dialog.show()
+    dialog.window?.setLayout(minOf(dp(320), resources.displayMetrics.widthPixels - dp(40)), -2)
+
+}
 
 internal fun MainActivity.showAdjustHoldDurationDialog(index: Int, formation: com.formationtool.app.model.Formation) {
-        val input = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            hint = "输入时长（毫秒）"
-            setText((formation.holdDuration).toString())
-            setPadding(50, 20, 50, 20)
-        }
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("调整保持时长（绿色区）")
-            .setMessage("当前: ${formation.holdDuration}ms (${formatTime(formation.holdDuration)})\n\n在此时间内，舞者保持当前阵型完全不动。")
-            .setView(input)
-            .setPositiveButton("确定") { _, _ ->
-                val newDuration = input.text.toString().toLongOrNull()
-                if (newDuration != null && newDuration >= 0) {
-                    viewModel.updateFormationHoldDuration(index, newDuration)
-                    android.widget.Toast.makeText(
-                        this,
-                        "已调整保持时长为 ${formatTime(newDuration)}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    android.widget.Toast.makeText(
-                        this,
-                        "请输入有效的数字",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-            .setNegativeButton("取消", null)
-            .show()
+    showFormationDurationInput("保持此队形的时长", formation.holdDuration) {
+        viewModel.saveUndoSnapshot()
+        viewModel.updateFormationHoldDuration(index, it)
     }
+}
 
 internal fun MainActivity.showAdjustTransitionDurationDialog(index: Int, formation: com.formationtool.app.model.Formation) {
-        val input = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            hint = "输入时长（毫秒）"
-            setText((formation.duration).toString())
-            setPadding(50, 20, 50, 20)
-        }
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("调整变换时长（红色区）")
-            .setMessage("当前: ${formation.duration}ms (${formatTime(formation.duration)})\n\n在此时间内，舞者从当前阵型变换到下一阵型。")
-            .setView(input)
-            .setPositiveButton("确定") { _, _ ->
-                val newDuration = input.text.toString().toLongOrNull()
-                if (newDuration != null && newDuration >= 0) {
-                    viewModel.updateFormationTransitionDuration(index, newDuration)
-                    android.widget.Toast.makeText(
-                        this,
-                        "已调整变换时长为 ${formatTime(newDuration)}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    android.widget.Toast.makeText(
-                        this,
-                        "请输入有效的数字",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-            .setNegativeButton("取消", null)
-            .show()
+    showFormationDurationInput("变到队形 ${index + 1} 的用时", formation.duration) {
+        viewModel.updateFormationTransitionDuration(index, it)
     }
+}
+
+private fun MainActivity.showFormationDurationInput(title: String, duration: Long, onSave: (Long) -> Unit) {
+    val density = resources.displayMetrics.density
+    fun dp(value: Int) = (value * density).toInt()
+    val content = android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setPadding(dp(20), dp(16), dp(20), 0)
+    }
+    content.addView(TextView(this).apply {
+        text = title
+        textSize = 16f
+        setTextColor(android.graphics.Color.WHITE)
+    })
+    val input = EditText(this).apply {
+        inputType = InputType.TYPE_CLASS_NUMBER
+        setSingleLine(true)
+        textSize = 14f
+        hint = "毫秒"
+        setText(duration.toString())
+        selectAll()
+    }
+    content.addView(input)
+    content.addView(TextView(this).apply {
+        text = "单位：毫秒"
+        textSize = 11f
+        setTextColor(android.graphics.Color.parseColor("#A7B0C4"))
+    })
+    val dialog = MaterialAlertDialogBuilder(this)
+        .setView(content)
+        .setPositiveButton("确定", null)
+        .setNegativeButton("取消", null)
+        .create()
+    dialog.show()
+    dialog.window?.setLayout(minOf(dp(320), resources.displayMetrics.widthPixels - dp(40)), -2)
+    dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+        val value = input.text.toString().toLongOrNull()
+        if (value == null || value < 0) input.error = "请输入有效的时长"
+        else { onSave(value); dialog.dismiss() }
+    }
+}
 
 internal fun MainActivity.showDeleteKeyframeDialog(index: Int, timestamp: Long) {
         MaterialAlertDialogBuilder(this)

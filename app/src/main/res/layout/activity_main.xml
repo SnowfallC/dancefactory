@@ -389,7 +389,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.667"/>
+        app:layout_constraintGuide_percent="0.56"/>
 
     <!-- 底部面板：时间轴（占屏幕三分之一） -->
     <LinearLayout
@@ -405,6 +405,12 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- 时间轴编排工具 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical">
+                <Button android:id="@+id/btnEditingMode" android:layout_width="104dp" android:layout_height="32dp" android:text="F 拍打模式" android:textSize="11sp" android:minHeight="0dp" android:padding="0dp" />
+                <Button android:id="@+id/btnAddInterval" android:layout_width="76dp" android:layout_height="32dp" android:layout_marginStart="8dp" android:text="＋队形" android:textSize="11sp" android:minHeight="0dp" android:padding="0dp" android:visibility="gone" />
+            </LinearLayout>
 
             <!-- 可缩放的时间轴容器 -->
             <FrameLayout
@@ -440,20 +446,21 @@
                             <FrameLayout
                                 android:id="@+id/keyframeMarkersContainer"
                                 android:layout_width="match_parent"
-                                android:layout_height="14dp"/>
+                                android:layout_height="18dp"
+                                android:visibility="gone"/>
 
                             <!-- 波形视图 -->
                             <com.formationtool.app.view.WaveformView
                                 android:id="@+id/waveformView"
                                 android:layout_width="match_parent"
-                                android:layout_height="50dp"/>
+                                android:layout_height="0dp"
+                                android:layout_weight="1"/>
 
                             <!-- 导出范围选择条（波形下方） -->
                             <com.formationtool.app.view.ExportRangeView
                                 android:id="@+id/exportRangeView"
                                 android:layout_width="match_parent"
-                                android:layout_height="0dp"
-                                android:layout_weight="1"/>
+                                android:layout_height="12dp"/>
                         </LinearLayout>
                     </FrameLayout>
                 </HorizontalScrollView>

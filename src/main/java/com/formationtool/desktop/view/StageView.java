@@ -67,7 +67,11 @@ public class StageView extends Canvas {
     private void initializeView() {
 
         // 监听数据变化，自动重新渲染
-        viewModel.currentGroupProperty().addListener((obs, oldVal, newVal) -> render());
+        viewModel.currentGroupProperty().addListener((obs, oldVal, newVal) -> {
+            cachedInterpolatedDancers = null;
+            cachedTime = -1;
+            render();
+        });
         viewModel.currentFormationIndexProperty().addListener((obs, oldVal, newVal) -> render());
         // 监听当前时间变化
         viewModel.currentTimeProperty().addListener((obs, oldVal, newVal) -> {
@@ -207,8 +211,10 @@ public class StageView extends Canvas {
         gc.fillRect(0, 0, w, h);
 
         // 计算基础缩放比例
+        boolean backstageVisible = viewModel.getCurrentGroup() != null && viewModel.getCurrentGroup().isBackstageVisible();
+        float backstageWidth = viewModel.getCurrentGroup() != null ? viewModel.getCurrentGroup().getBackstageWidth() : 0f;
         baseScale = (float) Math.min(
-            (w * 0.9) / stageWidth,
+            (w * 0.9) / (stageWidth + (backstageVisible ? backstageWidth * 2 : 0)),
             (h * 0.9) / stageDepth
         );
 
@@ -226,6 +232,19 @@ public class StageView extends Canvas {
             drawCenterLine(gc, w, h);
         }
 
+        if (backstageVisible) {
+            double top = h / 2 - stageDepth * scale / 2;
+            double sideWidth = backstageWidth * scale;
+            gc.setFill(Color.rgb(148, 163, 184, 0.18));
+            gc.fillRect(w / 2 - stageWidth * scale / 2 - sideWidth, top, sideWidth, stageDepth * scale);
+            gc.fillRect(w / 2 + stageWidth * scale / 2, top, sideWidth, stageDepth * scale);
+            gc.setFill(Color.rgb(203, 213, 225, 0.8));
+            gc.setFont(javafx.scene.text.Font.font(14));
+            gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+            gc.fillText("台下", w / 2 - (stageWidth + backstageWidth) * scale / 2, top + 20);
+            gc.fillText("台下", w / 2 + (stageWidth + backstageWidth) * scale / 2, top + 20);
+            gc.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
+        }
         // 绘制舞者
         drawDancers(gc, w, h);
     }
@@ -637,6 +656,12 @@ public class StageView extends Canvas {
             newY = Math.round(newY * 2) / 2.0f;
         }
 
+        // 台下属于可编排区域，限制在舞台及两侧台下范围内。
+        if (viewModel.getCurrentGroup() != null) {
+            float maxX = stageWidth / 2 + viewModel.getCurrentGroup().getBackstageWidth();
+            newX = Math.max(-maxX, Math.min(maxX, newX));
+            newY = Math.max(-stageDepth / 2, Math.min(stageDepth / 2, newY));
+        }
         // 检查是否真的移动了（避免微小抖动触发）
         float[] originalPos = originalDancerPositions != null ? originalDancerPositions.get(draggedDancer.getId()) : null;
         if (originalPos != null) {
@@ -681,7 +706,11 @@ public class StageView extends Canvas {
                 return;
             }
 
+            if (viewModel.isStandardMode()) {
+                viewModel.getUndoManager().saveSnapshot(viewModel.getCurrentGroup());
+            }
             for (Dancer snapshotDancer : dragDisplayDancers) {
+                if (viewModel.isStandardMode() && !snapshotDancer.getId().equals(draggedDancer.getId())) continue;
                 for (Dancer currentDancer : currentFormation.getDancers()) {
                     if (currentDancer.getId().equals(snapshotDancer.getId())) {
                         currentDancer.setX(snapshotDancer.getX());
@@ -693,7 +722,12 @@ public class StageView extends Canvas {
 
             // 创建关键帧（保存拖拽结果）
             long currentTime = viewModel.getCurrentTime();
-            viewModel.createKeyframe(currentTime, originalDancerPositions);
+            if (viewModel.isStandardMode()) {
+                // 标准模式修改整个队形区间，不因拖动位置产生额外关键帧。
+                viewModel.markGroupChanged();
+            } else {
+                viewModel.createKeyframe(currentTime, originalDancerPositions);
+            }
         }
 
         // 重置拖拽状态

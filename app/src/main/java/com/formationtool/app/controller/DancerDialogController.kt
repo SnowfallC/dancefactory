@@ -24,17 +24,11 @@ object DancerDialogController {
 
     fun showAddDancerDialog(
         context: Context,
-        hasMedia: Boolean,
         presetColors: List<Int>,
         presetOptions: List<PresetOption>,
         onPickColor: (Int, (Int) -> Unit) -> Unit,
         onAddDancer: (String, Int) -> Unit
     ) {
-        if (!hasMedia) {
-            Toast.makeText(context, "请先导入音频/视频", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         var selectedColor = presetColors.firstOrNull() ?: Color.WHITE
 
         val scrollView = ScrollView(context).apply {

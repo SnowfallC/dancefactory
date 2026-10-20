@@ -121,6 +121,8 @@ internal fun MainActivity.proceedWithExport(config: com.formationtool.app.export
             bitRate = 16_000_000
         )
 
+        videoExporter?.backstageVisible = viewModel.currentGroup.value?.backstageVisible == true
+
         // 设置进度回调
         videoExporter?.setCallback(object : com.formationtool.app.export.VideoExporter.ProgressCallback {
             override fun onProgress(progress: Float, message: String) {

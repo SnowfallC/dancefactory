@@ -326,6 +326,7 @@ public class ProjectListWindow {
                 Alert error = new Alert(Alert.AlertType.ERROR);
                 error.setTitle("删除失败");
                 error.setHeaderText("无法删除工程");
+                com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(error);
                 error.showAndWait();
             }
         }

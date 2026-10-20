@@ -1,6 +1,14 @@
 package com.formationtool.desktop.controller;
 
-import com.formationtool.desktop.model.DanceGroup;
+import com.formationtool.desktop.model.CustomTeamPreset;
+import com.formationtool.desktop.data.CustomTeamPresetStore;
+import com.formationtool.desktop.view.CustomTeamPresetDialog;
+import com.formationtool.desktop.view.PresetDialogTheme;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ListCell;
+import javafx.scene.layout.HBox;
+import java.io.IOException;
+import java.util.UUID;
 import com.formationtool.desktop.model.Dancer;
 import com.formationtool.desktop.viewmodel.FormationViewModel;
 import javafx.geometry.Insets;
@@ -61,7 +69,7 @@ public final class TeamPresetController {
         new DancerPreset("艾玛", 0xFF88CC66),
         new DancerPreset("璃奈", 0xFFC8C8C8),
         new DancerPreset("栞子", 0xFF00D0B1),
-        new DancerPreset("泰勒", 0xFFB0C4DE),
+        new DancerPreset("米娅", 0xFFB0C4DE),
         new DancerPreset("钟岚珠", 0xFFF8C8DC),
         new DancerPreset("高咲侑", 0xFFDC143C)
     };
@@ -113,8 +121,9 @@ public final class TeamPresetController {
 
     public void showTeamPresetDialog() {
         Dialog<String> dialog = new Dialog<>();
+        PresetDialogTheme.apply(dialog);
         dialog.setTitle("团队预设");
-        dialog.setHeaderText("选择一个团队预设来替换当前所有舞者");
+        dialog.setHeaderText(null);
 
         VBox content = new VBox(10);
         content.setPadding(new Insets(20));
@@ -188,34 +197,83 @@ public final class TeamPresetController {
         applyTeamPreset(HASUNOSORA_DANCERS);
     }
 
-    private void applyTeamPreset(DancerPreset[] presets) {
-        if (viewModel.getCurrentGroup() == null) {
-            return;
-        }
+    public void showCustomPresetDialog() {
+        CustomTeamPresetStore store = new CustomTeamPresetStore();
+        Dialog<Void> dialog = new Dialog<>();
+        PresetDialogTheme.apply(dialog);
+        dialog.setTitle("本机自定义预设");
+        dialog.setHeaderText(null);
+        ListView<CustomTeamPreset> presets = new ListView<>();
+        presets.setPrefHeight(260);
+        presets.setCellFactory(list -> new ListCell<>() {
+            @Override protected void updateItem(CustomTeamPreset item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.name() + "（" + item.members().size() + " 人）");
+            }
+        });
+        try { presets.getItems().setAll(store.load()); }
+        catch (IOException e) { showPresetError(e); return; }
+        Button create = new Button("新建预设");
+        Button edit = new Button("编辑");
+        Button apply = new Button("应用到当前工程");
+        edit.disableProperty().bind(presets.getSelectionModel().selectedItemProperty().isNull());
+        apply.disableProperty().bind(presets.getSelectionModel().selectedItemProperty().isNull());
+        Consumer<CustomTeamPreset> editPreset = initial -> CustomTeamPresetDialog.create(initial).showAndWait().ifPresent(preset -> {
+            try {
+                store.save(preset, initial == null ? null : initial.name());
+                presets.getItems().setAll(store.load());
+                presets.getSelectionModel().select(preset);
+                statusUpdater.accept("已保存本机预设：" + preset.name());
+            } catch (IOException e) { showPresetError(e); }
+        });
+        create.setOnAction(event -> editPreset.accept(null));
+        edit.setOnAction(event -> editPreset.accept(presets.getSelectionModel().getSelectedItem()));
+        apply.setOnAction(event -> {
+            CustomTeamPreset preset = presets.getSelectionModel().getSelectedItem();
+            if (preset == null) return;
+            DancerPreset[] dancers = preset.members().stream()
+                .map(member -> new DancerPreset(member.name(), 0xFF000000 | Integer.parseInt(member.color().substring(1), 16)))
+                .toArray(DancerPreset[]::new);
+            if (applyTeamPreset(dancers)) {
+                statusUpdater.accept("已从预设创建舞者：" + preset.name());
+                dialog.close();
+            }
+        });
+        VBox content = new VBox(12, presets, new HBox(8, create, edit, apply));
+        content.setPadding(new Insets(16));
+        content.setPrefWidth(560);
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
 
+    private void showPresetError(Exception error) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        PresetDialogTheme.apply(alert);
+        alert.setTitle("本机预设");
+        alert.setHeaderText("无法保存或读取本机预设");
+        error.printStackTrace();
+        alert.setContentText(error.getMessage());
+        com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(alert);
+        alert.showAndWait();
+    }
+
+    private boolean applyTeamPreset(DancerPreset[] presets) {
+        if (viewModel.getCurrentGroup() == null) return false;
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        PresetDialogTheme.apply(confirm);
         confirm.setTitle("确认应用预设");
         confirm.setHeaderText("应用团队预设");
-        confirm.setContentText("将替换所有现有舞者\n是否继续?");
-
+        confirm.setContentText("将替换工程内的舞者，可通过撤销恢复。是否继续？");
         Optional<ButtonType> result = confirm.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            DanceGroup group = viewModel.getCurrentGroup();
-
-            List<String> dancerIds = new ArrayList<>();
-            for (Dancer dancer : group.getFormations().get(0).getDancers()) {
-                dancerIds.add(dancer.getId());
-            }
-            for (String id : dancerIds) {
-                viewModel.deleteDancer(id);
-            }
-
-            for (DancerPreset preset : presets) {
-                viewModel.addDancer(preset.name, preset.color);
-            }
-
-            dancerListUpdater.run();
-            stageRenderer.run();
+        if (result.isEmpty() || result.get() != ButtonType.OK) return false;
+        List<Dancer> roster = new ArrayList<>();
+        for (DancerPreset preset : presets) {
+            roster.add(new Dancer(UUID.randomUUID().toString(), preset.name, 0, 0, preset.color));
         }
+        viewModel.replaceDancerRoster(roster);
+        dancerListUpdater.run();
+        stageRenderer.run();
+        return true;
     }
 }

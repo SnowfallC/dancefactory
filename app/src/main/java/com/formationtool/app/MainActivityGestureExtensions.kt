@@ -3,6 +3,7 @@ package com.formationtool.app
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import com.formationtool.app.model.backstageWidth
 import com.formationtool.app.viewmodel.createKeyframe
 import com.formationtool.app.viewmodel.insertKeyframeWithPositions
 
@@ -195,7 +196,7 @@ internal fun MainActivity.setupGestures() {
                             rawDragY += worldDelta.second
 
                             // 限制在舞台范围内
-                            rawDragX = rawDragX.coerceIn(-halfWidth, halfWidth)
+                            rawDragX = rawDragX.coerceIn(-halfWidth - (group?.backstageWidth() ?: 0f), halfWidth + (group?.backstageWidth() ?: 0f))
                             rawDragY = rawDragY.coerceIn(-halfDepth, halfDepth)
 
                             // 计算显示位置：如果开启吸附则吸附，否则使用原始位置
@@ -250,7 +251,10 @@ internal fun MainActivity.setupGestures() {
                         // 检查是否在红色过渡区（插值区域）
                         val isInTransition = isCurrentTimeInTransition()
 
-                        if (isInTransition) {
+                        if (group?.standardMode == true) {
+                            val moved = dragDisplayDancers?.find { it.id == selectedDancerId }
+                            if (moved != null) viewModel.updateIntervalDancer(moved.id, moved.x, moved.y)
+                        } else if (isInTransition) {
                             // 在红色过渡区：先用插值位置创建新关键帧，然后更新拖动的舞者位置
                             val interpolatedDancers = getInterpolatedDancers()
                             if (interpolatedDancers != null && group != null) {

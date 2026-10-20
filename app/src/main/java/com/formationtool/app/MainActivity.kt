@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
     internal val PERMISSION_REQUEST_CODE = 100
 
     // 时间轴缩放
+    internal var previousStandardMode: Boolean? = null
     internal var timelineZoom = 1f // 1.0 ~ 15.0
     internal lateinit var waveformView: WaveformView
     internal lateinit var timelineContent: FrameLayout
@@ -150,7 +151,7 @@ class MainActivity : AppCompatActivity() {
         DancerPreset("艾玛", AndroidColor.parseColor("#88CC66")),
         DancerPreset("璃奈", AndroidColor.parseColor("#C8C8C8")),
         DancerPreset("栞子", AndroidColor.parseColor("#00D0B1")),
-        DancerPreset("泰勒", AndroidColor.parseColor("#B0C4DE")),
+        DancerPreset("米娅", AndroidColor.parseColor("#B0C4DE")),
         DancerPreset("钟岚珠", AndroidColor.parseColor("#F8C8DC")),
         DancerPreset("高咲侑", AndroidColor.parseColor("#DC143C"))
     )
@@ -401,6 +402,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkForAppUpdate() {
+        if (packageName.endsWith(".preview")) return
         lifecycleScope.launch {
             val info = AppUpdateChecker.checkForUpdate(this@MainActivity)
             if (info != null) {

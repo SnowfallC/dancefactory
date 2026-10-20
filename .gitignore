@@ -34,6 +34,7 @@ hs_err_pid*
 .gradle/
 build/
 app/build/
+app/release/
 local.properties
 
 # Local packaging outputs
@@ -61,6 +62,7 @@ _.mp4
 
 # Local QA / maintenance output
 qa/desktop/reports/
+docs/playback-evidence-*/
 hatch-runs/
 fix_comments_result.txt
 verify_final.txt

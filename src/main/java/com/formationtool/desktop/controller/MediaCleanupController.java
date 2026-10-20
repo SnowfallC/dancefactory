@@ -12,7 +12,6 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.MenuItem;
-import javafx.scene.media.MediaView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +62,6 @@ public final class MediaCleanupController {
         FormationViewModel viewModel,
         TimelineView timelineView,
         DataManager dataManager,
-        MediaView videoView,
         MenuItem importAudioMenuItem,
         MenuItem importVideoMenuItem,
         Runnable onFormationListUpdated
@@ -71,7 +69,7 @@ public final class MediaCleanupController {
         boolean hasAudio = playbackController != null
             && playbackController.getAudioPlayer() != null
             && viewModel.getAudioDuration() > 0;
-        boolean hasVideo = playbackController != null && playbackController.getVideoPlayer() != null;
+        boolean hasVideo = playbackController != null && playbackController.hasVideo();
 
         if (!hasAudio && !hasVideo) {
             Alert info = new Alert(Alert.AlertType.INFORMATION);
@@ -154,9 +152,6 @@ public final class MediaCleanupController {
         if (hasVideo) {
             if (playbackController != null) {
                 playbackController.disposeVideo();
-            }
-            if (videoView != null) {
-                videoView.setMediaPlayer(null);
             }
             videoCleared = true;
 
@@ -250,8 +245,7 @@ public final class MediaCleanupController {
 
     public static String deleteVideo(
         AudioPlaybackController playbackController,
-        FormationViewModel viewModel,
-        MediaView videoView
+        FormationViewModel viewModel
     ) {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("确认删除");
@@ -265,9 +259,6 @@ public final class MediaCleanupController {
 
         if (playbackController != null) {
             playbackController.disposeVideo();
-        }
-        if (videoView != null) {
-            videoView.setMediaPlayer(null);
         }
 
         DanceGroup group = viewModel.getCurrentGroup();

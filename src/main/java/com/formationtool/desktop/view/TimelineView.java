@@ -7,6 +7,8 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextInputDialog;
@@ -111,11 +113,11 @@ public class TimelineView extends VBox {
         setPrefHeight(150);
 
         // 波形画布
-        waveformCanvas = new Canvas(800, 80);
+        waveformCanvas = new Canvas(800, 104);
         waveformPane = new StackPane();
-        waveformPane.setPrefHeight(80);
-        waveformPane.setMinHeight(80);
-        waveformPane.setMaxHeight(80);
+        waveformPane.setPrefHeight(104);
+        waveformPane.setMinHeight(104);
+        waveformPane.setMaxHeight(104);
 
         playheadOverlayLine = new Line();
         playheadOverlayLine.setStroke(Color.YELLOW);
@@ -168,7 +170,18 @@ public class TimelineView extends VBox {
         timeLabel.setTextFill(Color.WHITE);
         timeLabel.setMinWidth(100);
 
-        HBox sliderBox = new HBox(10, resetButton, timeSlider, timeLabel);
+        ToggleButton modeToggle = new ToggleButton();
+        modeToggle.getStyleClass().add("mode-toggle");
+        modeToggle.setTooltip(new Tooltip("开启标准模式：以队形区间编排；关闭：使用 F 键红绿拍打。切换保留站位和时间。"));
+        modeToggle.disableProperty().bind(viewModel.isPlayingProperty());
+        modeToggle.setOnAction(e -> viewModel.setStandardMode(modeToggle.isSelected()));
+        Runnable refreshMode = () -> {
+            modeToggle.setSelected(viewModel.isStandardMode());
+            modeToggle.setText(modeToggle.isSelected() ? "标准模式" : "F 拍打模式");
+        };
+        viewModel.currentGroupProperty().addListener((obs, oldVal, newVal) -> refreshMode.run());
+        refreshMode.run();
+        HBox sliderBox = new HBox(10, resetButton, modeToggle, timeSlider, timeLabel);
         sliderBox.setAlignment(Pos.CENTER_LEFT);
         sliderBox.setMinHeight(35);
         sliderBox.setPadding(new Insets(5, 0, 0, 0));
@@ -241,6 +254,15 @@ public class TimelineView extends VBox {
         });
 
         viewModel.currentGroupProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && viewModel.getAudioDuration() <= 0 && viewModel.isStandardMode()) {
+                long timelineDuration = viewModel.getTimelineDuration();
+                timeSlider.setMax(timelineDuration);
+                if (viewportEndTime > timelineDuration || viewportEndTime < timelineDuration && zoomLevel <= 1.0) {
+                    viewportStartTime = 0;
+                    viewportEndTime = timelineDuration;
+                }
+                updateTimeLabel();
+            }
             renderWaveform();
         });
 
@@ -260,6 +282,10 @@ public class TimelineView extends VBox {
             }
         });
 
+        // 初始化已存在的工程时，同步时长和滑块范围。
+        timeSlider.setMax(viewModel.getTimelineDuration());
+        updateTimeLabel();
+        exportRangeBar.setAudioDuration(viewModel.getAudioDuration());
         // 初始渲染
         renderWaveform();
         updatePlayheadOverlay();
@@ -292,7 +318,7 @@ public class TimelineView extends VBox {
      * anchorRatio: 焦点在画布中的相对位置，0=最左，1=最右
      */
     private void updateViewportWithAnchor(double focusTime, double anchorRatio) {
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         if (duration <= 0) {
             viewportStartTime = 0;
             viewportEndTime = 0;
@@ -324,7 +350,7 @@ public class TimelineView extends VBox {
      * 自动滚动到当前播放时间（类似剪映/PR的自动翻页）
      */
     private void autoScrollToCurrentTime(long currentTime) {
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         if (duration <= 0) return;
 
         // 如果没有缩放，不需要滚动
@@ -374,7 +400,7 @@ public class TimelineView extends VBox {
      */
     private void setupZoomEvents() {
         waveformCanvas.setOnScroll(event -> {
-            if (viewModel.getAudioDuration() <= 0) return;
+            if (viewModel.getTimelineDuration() <= 0) return;
 
             double deltaY = event.getDeltaY();
             if (deltaY == 0) return;
@@ -386,7 +412,7 @@ public class TimelineView extends VBox {
             double anchorRatio = Math.max(0.0, Math.min(1.0, mouseX / canvasWidth));
             double currentVisibleDuration = viewportEndTime - viewportStartTime;
             if (currentVisibleDuration <= 0) {
-                currentVisibleDuration = viewModel.getAudioDuration();
+                currentVisibleDuration = viewModel.getTimelineDuration();
                 viewportStartTime = 0;
                 viewportEndTime = currentVisibleDuration;
             }
@@ -416,11 +442,34 @@ public class TimelineView extends VBox {
      * 鼠标按下
      */
     private void handleMousePressed(MouseEvent event) {
-        if (viewModel.getCurrentGroup() == null || viewModel.getAudioDuration() <= 0) {
+        if (viewModel.getCurrentGroup() == null || viewModel.getTimelineDuration() <= 0) {
             return;
         }
 
         double x = event.getX();
+        if (event.getButton() == MouseButton.SECONDARY) {
+            handleRegionClick(event);
+            event.consume();
+            return;
+        }
+        if (viewModel.isStandardMode() && event.getButton() == MouseButton.PRIMARY
+                && !event.isControlDown() && checkBoundaryHit(x)) {
+            event.consume();
+            return;
+        }
+
+        if (event.getButton() == MouseButton.PRIMARY && !event.isControlDown() && !event.isAltDown()) {
+            long time = canvasXToTime(x);
+            var formations = viewModel.getCurrentGroup().getFormations();
+            for (int index = 1; index < formations.size(); index++) {
+                Formation formation = formations.get(index);
+                if (time >= formation.getTimestamp() - formation.getDuration() && time < formation.getTimestamp()) {
+                    showAdjustTransitionDurationDialog(index, formation);
+                    event.consume();
+                    return;
+                }
+            }
+        }
 
         // 优先检测是否点击到黄色进度条
         if (checkPlayheadHit(x)) {
@@ -444,13 +493,13 @@ public class TimelineView extends VBox {
         } else if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
             // 双击：跳转到点击位置
             long clickTime = canvasXToTime(x);
-            if (clickTime >= 0 && clickTime <= viewModel.getAudioDuration()) {
+            if (clickTime >= 0 && clickTime <= viewModel.getTimelineDuration()) {
                 setCurrentTimeFromTimeline(clickTime, true);
             }
             event.consume();
         } else if (event.getButton() == MouseButton.SECONDARY) {
             // 右键：显示调整时长对话框
-            handleRegionClick(x);
+            handleRegionClick(event);
             event.consume();
         } else if (event.getButton() == MouseButton.PRIMARY && event.isControlDown()) {
             // Ctrl+左键：开始框选
@@ -460,6 +509,10 @@ public class TimelineView extends VBox {
             selectedKeyframeIndices.clear();
             waveformCanvas.setCursor(Cursor.CROSSHAIR);
             event.consume();
+        } else if (viewModel.isStandardMode() && event.getButton() == MouseButton.PRIMARY
+                && !event.isAltDown() && selectFormationAt(x)) {
+            event.consume();
+            return;
         } else if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 1 && zoomLevel > 1.0) {
             // 放大状态下，左键按住空白区域可拖动视口
             isDraggingViewport = true;
@@ -469,7 +522,10 @@ public class TimelineView extends VBox {
             waveformCanvas.setCursor(Cursor.CLOSED_HAND);
             event.consume();
         }
-        // 单击不做任何操作
+        if (viewModel.isStandardMode() && event.getButton() == MouseButton.PRIMARY
+                && !event.isControlDown() && !isDraggingBoundary && !isDraggingViewport && !isDraggingPlayhead) {
+            setCurrentTimeFromTimeline(canvasXToTime(x), true);
+        }
     }
 
     /**
@@ -477,7 +533,7 @@ public class TimelineView extends VBox {
      */
     private boolean checkPlayheadHit(double x) {
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         if (width <= 0 || duration <= 0) return false;
 
         long currentTime = (isDraggingPlayhead && dragPreviewTimeMs >= 0)
@@ -516,7 +572,7 @@ public class TimelineView extends VBox {
      * 更新时间并按需通知外部seek（用于同步视频刷新）
      */
     private void setCurrentTimeFromTimeline(long timeMs, boolean requestSeek) {
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         long clampedTime = duration > 0
             ? Math.max(0, Math.min(timeMs, duration))
             : Math.max(0, timeMs);
@@ -544,7 +600,7 @@ public class TimelineView extends VBox {
      * 拖动更新事件分发（兼容旧预览回调）
      */
     private void dispatchPreviewScrubUpdated(long timeMs) {
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         long clampedTime = duration > 0
             ? Math.max(0, Math.min(timeMs, duration))
             : Math.max(0, timeMs);
@@ -563,7 +619,7 @@ public class TimelineView extends VBox {
      * 拖动结束事件分发
      */
     private void dispatchPreviewScrubEnded(long timeMs) {
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         long clampedTime = duration > 0
             ? Math.max(0, Math.min(timeMs, duration))
             : Math.max(0, timeMs);
@@ -594,7 +650,7 @@ public class TimelineView extends VBox {
     private void handleMouseDragged(MouseEvent event) {
         double x = event.getX();
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         if (width <= 0 || duration <= 0) return;
 
@@ -745,7 +801,7 @@ public class TimelineView extends VBox {
      * 鼠标移动（改变光标）
      */
     private void handleMouseMoved(MouseEvent event) {
-        if (viewModel.getCurrentGroup() == null || viewModel.getAudioDuration() <= 0) {
+        if (viewModel.getCurrentGroup() == null || viewModel.getTimelineDuration() <= 0) {
             return;
         }
 
@@ -777,7 +833,7 @@ public class TimelineView extends VBox {
         if (viewModel.getCurrentGroup() == null) return false;
 
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         if (width <= 0 || duration <= 0) return false;
 
@@ -785,6 +841,7 @@ public class TimelineView extends VBox {
 
         // 倒序遍历，优先匹配后面的关键帧
         for (int i = formations.size() - 1; i >= 0; i--) {
+            if (viewModel.isStandardMode() && i != viewModel.getCurrentFormationIndex()) continue;
             Formation formation = formations.get(i);
             long timestamp = formation.getTimestamp();
             long greenEnd = timestamp + formation.getHoldDuration();
@@ -838,7 +895,7 @@ public class TimelineView extends VBox {
         if (viewModel.getCurrentGroup() == null) return false;
 
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         if (width <= 0 || duration <= 0) return false;
 
@@ -846,6 +903,7 @@ public class TimelineView extends VBox {
 
         // 倒序遍历，优先匹配后面的关键帧
         for (int i = formations.size() - 1; i >= 0; i--) {
+            if (viewModel.isStandardMode() && i != viewModel.getCurrentFormationIndex()) continue;
             Formation formation = formations.get(i);
             long timestamp = formation.getTimestamp();
             long greenEnd = timestamp + formation.getHoldDuration();
@@ -874,11 +932,12 @@ public class TimelineView extends VBox {
      * - 红色区: [timestamp - duration, timestamp)
      * - 绿色区: [timestamp, timestamp + holdDuration)
      */
-    private void handleRegionClick(double x) {
+    private void handleRegionClick(MouseEvent event) {
+        double x = event.getX();
         if (viewModel.getCurrentGroup() == null) return;
 
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         if (width <= 0 || duration <= 0) return;
 
@@ -904,10 +963,44 @@ public class TimelineView extends VBox {
 
             // 检测是否点击在绿色保持区（后面）
             if (x >= timestampX && x < greenEndX) {
-                showAdjustHoldDurationDialog(i, formation);
+                showFormationActions(i, formation, event);
                 return;
             }
         }
+    }
+
+    private boolean selectFormationAt(double x) {
+        long time = canvasXToTime(x);
+        List<Formation> formations = viewModel.getCurrentGroup().getFormations();
+        for (int index = formations.size() - 1; index >= 0; index--) {
+            Formation formation = formations.get(index);
+            if (time >= formation.getTimestamp() - formation.getDuration()
+                    && time < formation.getTimestamp() + formation.getHoldDuration()) {
+                setCurrentTimeFromTimeline(formation.selectionTime(viewModel.getCurrentTime()), true);
+                viewModel.setCurrentFormationIndex(index);
+                renderWaveform();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showFormationActions(int index, Formation formation, MouseEvent event) {
+        javafx.scene.control.ContextMenu menu = new javafx.scene.control.ContextMenu();
+        javafx.scene.control.MenuItem hold = new javafx.scene.control.MenuItem("调整保持时长");
+        hold.setOnAction(e -> showAdjustHoldDurationDialog(index, formation));
+        menu.getItems().add(hold);
+        if (viewModel.getCurrentGroup().getFormations().size() > 1) {
+            javafx.scene.control.MenuItem delete = new javafx.scene.control.MenuItem("删除本队形");
+            delete.setOnAction(e -> {
+                int currentIndex = viewModel.getCurrentGroup().getFormations().indexOf(formation);
+                if (currentIndex >= 0) viewModel.deleteFormation(currentIndex);
+                if (onFormationsChanged != null) onFormationsChanged.run();
+                renderWaveform();
+            });
+            menu.getItems().add(delete);
+        }
+        menu.show(waveformCanvas, event.getScreenX(), event.getScreenY());
     }
 
     /**
@@ -915,9 +1008,9 @@ public class TimelineView extends VBox {
      */
     private void showAdjustHoldDurationDialog(int index, Formation formation) {
         TextInputDialog dialog = new TextInputDialog(String.valueOf(formation.getHoldDuration()));
-        dialog.setTitle("调整保持时长（绿色区）");
+        dialog.setTitle("调整保持时长");
         dialog.setHeaderText("关键帧 " + (index + 1) + ": " + formation.getName());
-        dialog.setContentText("保持时长（毫秒）：\n从timestamp开始，在此时间内舞者保持当前阵型完全不动。");
+        dialog.setContentText("保持此队形的时间（毫秒）：");
 
         Optional<String> result = dialog.showAndWait();
         result.ifPresent(value -> {
@@ -938,9 +1031,9 @@ public class TimelineView extends VBox {
      */
     private void showAdjustTransitionDurationDialog(int index, Formation formation) {
         TextInputDialog dialog = new TextInputDialog(String.valueOf(formation.getDuration()));
-        dialog.setTitle("调整变换时长（红色区）");
+        dialog.setTitle("调整变到此队形的用时");
         dialog.setHeaderText("关键帧 " + index + " 到 关键帧 " + (index + 1));
-        dialog.setContentText("变换时长（毫秒）：\n从前一帧绿色区结束到当前帧timestamp，舞者过渡变换的时间。");
+        dialog.setContentText("从上一队形变到此队形所需的时间（毫秒）：");
 
         Optional<String> result = dialog.showAndWait();
         result.ifPresent(value -> {
@@ -979,7 +1072,7 @@ public class TimelineView extends VBox {
         gc.setFill(Color.rgb(30, 30, 40));
         gc.fillRect(0, 0, width, height);
 
-        if (viewModel.getCurrentGroup() == null || viewModel.getAudioDuration() <= 0) {
+        if (viewModel.getCurrentGroup() == null || viewModel.getTimelineDuration() <= 0) {
             // 显示提示文字
             gc.setFill(Color.rgb(136, 136, 153));
             gc.setFont(javafx.scene.text.Font.font(14));
@@ -987,7 +1080,7 @@ public class TimelineView extends VBox {
             return;
         }
 
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         // 初始化视口（首次渲染时）
         if (viewportEndTime == 0) {
@@ -998,13 +1091,9 @@ public class TimelineView extends VBox {
         // 同步导出范围条的视口，让入点/出点选择器与波形缩放保持一致
         syncExportRangeViewport(duration);
 
-        // 绘制波形（如果有数据）
-        if (waveformData.length > 0) {
-            drawWaveform(gc, width, height, duration);
-        }
-
-        // 绘制保持区和变换区
         drawRegions(gc, width, height, duration);
+        if (waveformData.length > 0) drawWaveform(gc, width, height, duration);
+        drawClipControls(gc, width, height, duration);
 
         // 绘制框选矩形
         if (isBoxSelecting) {
@@ -1026,7 +1115,7 @@ public class TimelineView extends VBox {
      * 绘制波形
      */
     private void drawWaveform(GraphicsContext gc, double width, double height, long duration) {
-        gc.setStroke(Color.rgb(100, 150, 255, 0.6));  // 蓝色半透明
+        gc.setStroke(viewModel.isStandardMode() ? Color.rgb(255, 255, 255, 0.4) : Color.rgb(100, 150, 255, 0.6));  // 蓝色半透明
         gc.setLineWidth(1);
 
         double centerY = height / 2;
@@ -1068,6 +1157,24 @@ public class TimelineView extends VBox {
      */
     private void drawRegions(GraphicsContext gc, double width, double height, long duration) {
         List<Formation> formations = viewModel.getCurrentGroup().getFormations();
+        if (viewModel.isStandardMode()) {
+            Color[] colors = {Color.web("#2463D6"), Color.web("#087F8C"), Color.web("#7544CC")};
+            for (int i = 0; i < formations.size(); i++) {
+                Formation formation = formations.get(i);
+                double start = timeToCanvasX(formation.getTimestamp(), width, duration);
+                double end = timeToCanvasX(formation.getTimestamp() + formation.getHoldDuration(), width, duration);
+                double transitionStart = timeToCanvasX(formation.getTimestamp() - formation.getDuration(), width, duration);
+                if (i > 0 && start - transitionStart > 2) {
+                    gc.setFill(Color.web("#8A4A20"));
+                    gc.fillRoundRect(transitionStart + 1, 7, start - transitionStart - 2, height - 14, 10, 10);
+                }
+                if (end - start > 2) {
+                    gc.setFill(colors[i % colors.length]);
+                    gc.fillRoundRect(start + 1, 4, end - start - 2, height - 8, 12, 12);
+                }
+            }
+            return;
+        }
 
         for (int i = 0; i < formations.size(); i++) {
             Formation formation = formations.get(i);
@@ -1090,7 +1197,7 @@ public class TimelineView extends VBox {
                 double rectStartX = Math.max(0, redStartX);
                 double rectEndX = Math.min(width, timestampX);
                 if (rectStartX < rectEndX) {
-                    gc.setFill(Color.rgb(255, 68, 68, 0.25));  // 0x40FF4444
+                    gc.setFill(viewModel.isStandardMode() ? Color.rgb(148, 163, 184, 0.25) : Color.rgb(255, 68, 68, 0.25));
                     gc.fillRect(rectStartX, 0, rectEndX - rectStartX, height);
                 }
             }
@@ -1112,8 +1219,13 @@ public class TimelineView extends VBox {
                 double rectStartX = Math.max(0, timestampX);
                 double rectEndX = Math.min(width, greenEndX);
                 if (rectStartX < rectEndX) {
-                    gc.setFill(Color.rgb(0, 255, 0, 0.25));  // 0x4000FF00
+                    gc.setFill(viewModel.isStandardMode() ? Color.rgb(96, 165, 250, 0.35) : Color.rgb(0, 255, 0, 0.25));
                     gc.fillRect(rectStartX, 0, rectEndX - rectStartX, height);
+                    if (viewModel.isStandardMode() && rectEndX - rectStartX > 55) {
+                        gc.setFill(Color.WHITE);
+                        gc.setFont(javafx.scene.text.Font.font(12));
+                        gc.fillText("队形 " + (i + 1), rectStartX + 8, height / 2, rectEndX - rectStartX - 16);
+                    }
                 }
                 // 绘制绿色区右边界线
                 if (greenEndX >= 0 && greenEndX <= width) {
@@ -1126,6 +1238,42 @@ public class TimelineView extends VBox {
 
         // 绘制F键标记的临时区域（更高亮度，区分于已有区域）
         drawFKeyMarkRegion(gc, width, height, duration);
+    }
+
+    /** 在波形上层绘制编号与选中手柄，避免文字被遮挡。 */
+    private void drawClipControls(GraphicsContext gc, double width, double height, long duration) {
+        List<Formation> formations = viewModel.getCurrentGroup().getFormations();
+        for (int index = 0; index < formations.size(); index++) {
+            Formation formation = formations.get(index);
+            double start = timeToCanvasX(formation.getTimestamp(), width, duration);
+            double end = timeToCanvasX(formation.getTimestamp() + formation.getHoldDuration(), width, duration);
+            double visibleStart = Math.max(0, start);
+            double visibleEnd = Math.min(width, end);
+            gc.setFill(Color.WHITE);
+            gc.setFont(javafx.scene.text.Font.font(13));
+            if (visibleEnd - visibleStart > 70) {
+                gc.fillText("队形 " + (index + 1), visibleStart + 15, 25, visibleEnd - visibleStart - 30);
+                if (viewModel.isStandardMode()) {
+                    gc.setFont(javafx.scene.text.Font.font(11));
+                    gc.fillText(String.format(java.util.Locale.ROOT, "%.1f s", formation.getHoldDuration() / 1000.0),
+                        visibleStart + 15, height - 14, visibleEnd - visibleStart - 30);
+                }
+            }
+            if (!viewModel.isStandardMode()) continue;
+            double transitionStart = timeToCanvasX(formation.getTimestamp() - formation.getDuration(), width, duration);
+            if (index > 0 && Math.min(width, start) - Math.max(0, transitionStart) > 44) {
+                gc.setFont(javafx.scene.text.Font.font(12));
+                gc.fillText("过渡", Math.max(0, transitionStart) + 7, 25);
+            }
+            if (index == viewModel.getCurrentFormationIndex() && end - start > 2) {
+                gc.setStroke(Color.WHITE);
+                gc.setLineWidth(2);
+                gc.strokeRoundRect(start + 1, 4, end - start - 2, height - 8, 12, 12);
+                double handleWidth = Math.min(10, (end - start) / 3);
+                if (index > 0) gc.fillRect(start + 1, 10, handleWidth, height - 20);
+                gc.fillRect(end - handleWidth - 1, 10, handleWidth, height - 20);
+            }
+        }
     }
 
     /**
@@ -1189,7 +1337,7 @@ public class TimelineView extends VBox {
     private void updatePlayheadOverlayWithTime(long currentTime) {
         double width = waveformCanvas.getWidth();
         double height = waveformCanvas.getHeight();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
 
         if (width <= 0 || height <= 0 || duration <= 0 || viewModel.getCurrentGroup() == null) {
             playheadOverlayLine.setVisible(false);
@@ -1241,7 +1389,7 @@ public class TimelineView extends VBox {
     }
 
     private void updateTimeLabelWithCurrent(long current) {
-        long total = viewModel.getAudioDuration();
+        long total = viewModel.getTimelineDuration();
         timeLabel.setText(formatTime(current) + " / " + formatTime(total));
     }
 
@@ -1400,7 +1548,7 @@ public class TimelineView extends VBox {
         double maxX = Math.max(boxSelectStartX, boxSelectCurrentX);
 
         double width = waveformCanvas.getWidth();
-        long duration = viewModel.getAudioDuration();
+        long duration = viewModel.getTimelineDuration();
         if (width <= 0 || duration <= 0) return;
 
         List<Formation> formations = viewModel.getCurrentGroup().getFormations();

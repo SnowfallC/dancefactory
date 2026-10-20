@@ -82,6 +82,12 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [5/8] 编译并打包 JavaFX 应用...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create([IO.File]::ReadAllText((Join-Path $env:PROJECT_DIR 'tools/prepare-playback-runtime.ps1'),[Text.Encoding]::UTF8))) -ProjectDirectory $env:PROJECT_DIR"
+if %ERRORLEVEL% NEQ 0 (
+    echo [错误] 原生播放组件准备失败。
+    pause
+    exit /b 1
+)
 call "%MAVEN_CMD%" package -DskipTests
 if %ERRORLEVEL% NEQ 0 (
     echo [错误] Maven 打包失败。
@@ -98,6 +104,7 @@ mkdir "%PROJECT_DIR%jpackage-input\ffmpeg"
 
 copy "%PROJECT_DIR%target\formation-tool-desktop-%APP_VERSION%.jar" "%PROJECT_DIR%jpackage-input\" > nul
 xcopy "%PROJECT_DIR%target\libs" "%PROJECT_DIR%jpackage-input\libs\" /E /I /Y > nul
+xcopy "%PROJECT_DIR%target\native-runtime" "%PROJECT_DIR%jpackage-input\native\" /E /I /Y > nul
 
 set "FFMPEG_FOUND=0"
 if exist "C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\ffmpeg.exe" (
@@ -143,9 +150,10 @@ if exist "%PROJECT_DIR%installer" rmdir /s /q "%PROJECT_DIR%installer"
     --vendor "舞形工坊" ^
     --copyright "Copyright 2024-2026 舞形工坊" ^
     --java-options "-Dfile.encoding=UTF-8" ^
+    --java-options "--enable-native-access=ALL-UNNAMED" ^
     --icon "%PROJECT_DIR%src\main\resources\app-icon.ico" ^
     --module-path "%PROJECT_DIR%jpackage-input\libs" ^
-    --add-modules "javafx.controls,javafx.fxml,javafx.media,javafx.swing,jdk.crypto.ec"
+    --add-modules "javafx.controls,javafx.fxml,javafx.media,javafx.swing,java.logging,jdk.crypto.ec,jdk.unsupported"
 
 if %ERRORLEVEL% NEQ 0 (
     echo [错误] jpackage 打包失败。
@@ -164,9 +172,7 @@ echo [8/8] 压缩分发包...
 set "DIST_DIR=%PROJECT_DIR%dist\windows"
 set "ZIP_PATH=%DIST_DIR%\dancefactory-windows-%APP_VERSION%.zip"
 if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
-if exist "%ZIP_PATH%" del /q "%ZIP_PATH%"
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -LiteralPath '%PROJECT_DIR%installer\舞形工坊' -DestinationPath '%ZIP_PATH%' -Force"
+python "%PROJECT_DIR%tools\package_windows_release.py" --source "%PROJECT_DIR%installer\舞形工坊" --output "%ZIP_PATH%" --version "%APP_VERSION%"
 if %ERRORLEVEL% NEQ 0 (
     echo [警告] zip 压缩失败，但 exe 已经生成。
 ) else (

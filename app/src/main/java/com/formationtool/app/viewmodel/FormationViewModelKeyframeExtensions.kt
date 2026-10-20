@@ -2,6 +2,7 @@ package com.formationtool.app.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import com.formationtool.app.model.DanceGroup
+import com.formationtool.app.model.backstageWidth
 import com.formationtool.app.model.Dancer
 import com.formationtool.app.model.Formation
 import com.formationtool.app.viewmodel.FormationViewModel.Companion.DEFAULT_GREEN
@@ -27,7 +28,6 @@ fun FormationViewModel.batchAddDancers(dancersToAdd: List<Pair<String, Int>>) {
 
                 // 计算舞台半宽和半深
                 val halfWidth = group.stageWidth / 2f
-                val halfDepth = group.stageDepth / 2f
 
                 // 创建新舞者列表
                 val newDancers = dancersToAdd.mapIndexed { index, (name, color) ->
@@ -41,26 +41,18 @@ fun FormationViewModel.batchAddDancers(dancersToAdd: List<Pair<String, Int>>) {
 
                 // 计算总数和间距
                 val finalCount = initialCount + newDancers.size
-                val spacing = group.stageWidth / (finalCount + 1)
 
                 // 更新所有队形中的舞者
                 group.formations.forEach { formation ->
-                    // 重新排列已有舞者位置
-                    formation.dancers.forEachIndexed { index, dancer ->
-                        val x = spacing * (index + 1) - group.stageWidth / 2
-                        dancer.x = x.coerceIn(-halfWidth, halfWidth)
-                        dancer.y = 0f
-                    }
-
                     // 批量添加新舞者
                     newDancers.forEachIndexed { index, (id, name, color) ->
                         val position = initialCount + index + 1
-                        val newX = spacing * position - group.stageWidth / 2
+                        val newX = (if ((position - 1) % 2 == 0) -1 else 1) * (halfWidth + group.backstageWidth() / 2)
                         val newDancer = Dancer(
                             id = id,
                             name = name,
                             color = color,
-                            x = newX.coerceIn(-halfWidth, halfWidth),
+                            x = newX,
                             y = 0f,
                             z = 0.5f
                         )
@@ -69,6 +61,7 @@ fun FormationViewModel.batchAddDancers(dancersToAdd: List<Pair<String, Int>>) {
                 }
 
                 // 更新舞者总数
+                group.backstageVisible = true
                 group.dancerCount = finalCount
 
                 // 发送更新通知
@@ -98,9 +91,10 @@ fun FormationViewModel.addDancer(name: String = "", color: Int? = null) {
                 val halfDepth = group.stageDepth / 2f
 
                 //
-                // 新舞者放在舞台中上方
-                val newX = 0f  // 水平居中
-                val newY = halfDepth - 1f
+                // 新舞者放在左右台下，避免占用台上位置。
+                val newX = (if (currentCount % 2 == 0) -1 else 1) * (halfWidth + group.backstageWidth() / 2)
+                val newY = halfDepth - 1f - (currentCount / 2 % maxOf(1, group.stageDepth.toInt() - 1))
+                group.backstageVisible = true
 
                 // 在所有队形中添加新舞者
                 group.formations.forEach { formation ->
@@ -181,27 +175,20 @@ suspend fun FormationViewModel.setDancersToCount(targetCount: Int, getDefaultCol
             if (currentCount < safeTargetCount) {
                 val halfWidth = group.stageWidth / 2f
                 val finalCount = safeTargetCount
-                val spacing = group.stageWidth / (finalCount + 1)
                 val dancersToAdd = (currentCount until finalCount).map { index ->
                     Triple(UUID.randomUUID().toString(), "舞者${index + 1}", getDefaultColor(index))
                 }
 
                 group.formations.forEach { formation ->
-                    formation.dancers.forEachIndexed { index, dancer ->
-                        val x = spacing * (index + 1) - group.stageWidth / 2f
-                        dancer.x = x.coerceIn(-halfWidth, halfWidth)
-                        dancer.y = 0f
-                    }
-
                     dancersToAdd.forEachIndexed { index, (id, name, color) ->
                         val position = currentCount + index + 1
-                        val x = spacing * position - group.stageWidth / 2f
+                        val x = (if ((position - 1) % 2 == 0) -1 else 1) * (halfWidth + group.backstageWidth() / 2)
                         formation.dancers.add(
                             Dancer(
                                 id = id,
                                 name = name,
                                 color = color,
-                                x = x.coerceIn(-halfWidth, halfWidth),
+                                x = x,
                                 y = 0f,
                                 z = 0.5f
                             )
@@ -458,58 +445,35 @@ fun FormationViewModel.insertKeyframeWithPositions(timeMs: Long, interpolatedDan
     }
 
 fun FormationViewModel.deleteKeyframe(formationIndex: Int): Boolean {
-        var success = false
-        viewModelScope.launch {
-            groupMutex.withLock {
-                val group = _currentGroup.value ?: return@withLock
-
-                // 不能删除第一帧
-                if (formationIndex <= 0) {
-                    return@withLock
-                }
-
-                // 越界检查
-                if (formationIndex >= group.formations.size) {
-                    return@withLock
-                }
-
-                // 保存撤销快照
-                undoManager.saveSnapshot(group)
-
-                // 记录被删除帧的信息
-                val deletedFormation = group.formations[formationIndex]
-                val deletedRedStart = deletedFormation.timestamp - deletedFormation.duration
-
-                // 获取前一帧的绿色区域结束时间
-                val prevFormation = group.formations[formationIndex - 1]
-                val prevGreenEnd = prevFormation.timestamp + prevFormation.holdDuration
-
-                // 移除关键帧
-                group.formations.removeAt(formationIndex)
-
-                // 调整后续帧的红色区域
-                // 如果删除的帧后面还有帧，重新计算其红色区域
-                if (formationIndex < group.formations.size) {
-                    val nextFormation = group.formations[formationIndex]
-                    // 重新计算后续帧的过渡时长
-                    val newRedDuration = nextFormation.timestamp - prevGreenEnd
-                    nextFormation.duration = newRedDuration.coerceAtLeast(0L)
-                }
-                // 更新完成
-
-                // 调整当前索引
-                if (_currentFormationIndex.value >= group.formations.size) {
-                    _currentFormationIndex.value = group.formations.size - 1
-                } else if (_currentFormationIndex.value == formationIndex) {
-                    _currentFormationIndex.value = (formationIndex - 1).coerceAtLeast(0)
-                }
-
-                success = true
-                emitGroupUpdateLocked(group)
+    val current = _currentGroup.value ?: return false
+    if (current.formations.size <= 1 || formationIndex !in current.formations.indices) return false
+    val formationId = current.formations[formationIndex].id
+    viewModelScope.launch {
+        groupMutex.withLock {
+            val group = _currentGroup.value ?: return@withLock
+            val index = group.formations.indexOfFirst { it.id == formationId }
+            if (group.formations.size <= 1 || index < 0) return@withLock
+            undoManager.saveSnapshot(group)
+            group.formations.removeAt(index)
+            if (index == 0) {
+                // 首队形从零开始，后续队形的时间位置保持不变。
+                val first = group.formations.first()
+                first.holdDuration += first.timestamp
+                first.timestamp = 0L
+                first.duration = 0L
+            } else if (index < group.formations.size) {
+                val previous = group.formations[index - 1]
+                group.formations[index].duration =
+                    (group.formations[index].timestamp - previous.timestamp - previous.holdDuration).coerceAtLeast(0L)
             }
+            val selected = _currentFormationIndex.value
+            _currentFormationIndex.value = (if (selected >= index) selected - 1 else selected)
+                .coerceIn(0, group.formations.lastIndex)
+            emitGroupUpdateLocked(group)
         }
-        return success
     }
+    return true
+}
 
 fun FormationViewModel.deleteKeyframeByTimestamp(timestamp: Long): Boolean {
         val group = _currentGroup.value ?: return false
@@ -659,7 +623,7 @@ suspend fun FormationViewModel.insertKeyframeSmart(timestamp: Long, dancerPositi
             undoManager.saveSnapshot(group)
 
             // 获取模板队形（第一帧）
-            val template = if (formations.isEmpty()) null else formations[0]
+            val template = if (group.standardMode) formations.lastOrNull { it.timestamp <= timestamp } ?: formations.firstOrNull() else formations.firstOrNull()
 
             // 创建新关键帧
             val newFormation = Formation(
@@ -720,7 +684,7 @@ fun FormationViewModel.updateFormationHoldDuration(formationIndex: Int, newHoldD
 
                 if (isLastFormation) {
                     // 最后一帧：限制不超过音频时长
-                    val maxHoldDuration = _audioDuration.value - formation.timestamp
+                    val maxHoldDuration = if (_audioDuration.value > 0) (_audioDuration.value - formation.timestamp).coerceAtLeast(1L) else Long.MAX_VALUE
                     val clampedHoldDuration = newHoldDuration.coerceIn(1L, maxHoldDuration)  // 至少保留1ms
                     formation.holdDuration = clampedHoldDuration
                 } else {
@@ -766,16 +730,13 @@ fun FormationViewModel.updateFormationTransitionDuration(formationIndex: Int, ne
                 val formation = group.formations[formationIndex]
                 val prevFormation = group.formations[formationIndex - 1]
 
-                // 最大红色区域 = 当前帧到前一帧绿色结束的距离
-                val prevGreenEnd = prevFormation.timestamp + prevFormation.holdDuration
-
-                //
-                val maxRedDuration = formation.timestamp - prevGreenEnd
-                val clampedTransition = newTransitionDuration.coerceIn(0L, maxRedDuration)
-
+                // 固定到达此队形的时间，调整上一队形的保持区使片段连续。
+                undoManager.saveSnapshot(group)
+                val maxDuration = (formation.timestamp - prevFormation.timestamp - 1L).coerceAtLeast(0L)
+                val clampedTransition = newTransitionDuration.coerceIn(0L, maxDuration)
                 formation.duration = clampedTransition
+                prevFormation.holdDuration = formation.timestamp - prevFormation.timestamp - clampedTransition
 
-                // 更新并通知
                 emitGroupUpdateLocked(group)
             }
         }

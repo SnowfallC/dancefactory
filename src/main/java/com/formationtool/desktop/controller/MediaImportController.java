@@ -4,7 +4,6 @@ import com.formationtool.desktop.audio.AudioPlaybackController;
 import com.formationtool.desktop.data.DataManager;
 import com.formationtool.desktop.model.DanceGroup;
 import com.formationtool.desktop.viewmodel.FormationViewModel;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
@@ -13,54 +12,34 @@ import javafx.scene.control.Label;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaException;
 import javafx.scene.media.MediaPlayer;
-import javafx.scene.media.MediaView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 import java.io.File;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
 public final class MediaImportController {
-    /**
-     * JavaFX supports codecs, not file extensions.  In particular, an .mp4
-     * container may contain HEVC, AV1, or 10-bit H.264 that Windows Media
-     * Foundation cannot play through JavaFX.
-     */
-    private static final class VideoCompatibility {
-        private final boolean supported;
-        private final String issue;
-
-        private VideoCompatibility(boolean supported, String issue) {
-            this.supported = supported;
-            this.issue = issue;
-        }
-    }
-
     @FunctionalInterface
     public interface ErrorHandler {
         void show(String title, String message);
     }
 
+    private volatile File activeVideoFile;
+    private long videoSession;
     private final FormationViewModel viewModel;
     private final DataManager dataManager;
     private final AudioPlaybackController playbackController;
-    private final MediaView videoView;
     private final Label statusLabel;
     private final long mediaLoadTimeoutMs;
     private final ErrorHandler errorHandler;
     private final Function<File, File> audioConverter;
     private final Function<File, File> audioExtractor;
-    private final Function<File, File> videoConverter;
-    private final Function<File, File> previewProxyGenerator;
     private final Consumer<File> waveformExtractor;
     private final Runnable mediaMenuStateUpdater;
     private final Consumer<File> currentAudioFileSetter;
@@ -71,14 +50,11 @@ public final class MediaImportController {
         FormationViewModel viewModel,
         DataManager dataManager,
         AudioPlaybackController playbackController,
-        MediaView videoView,
         Label statusLabel,
         long mediaLoadTimeoutMs,
         ErrorHandler errorHandler,
         Function<File, File> audioConverter,
         Function<File, File> audioExtractor,
-        Function<File, File> videoConverter,
-        Function<File, File> previewProxyGenerator,
         Consumer<File> waveformExtractor,
         Runnable mediaMenuStateUpdater,
         Consumer<File> currentAudioFileSetter,
@@ -88,14 +64,11 @@ public final class MediaImportController {
         this.viewModel = Objects.requireNonNull(viewModel);
         this.dataManager = Objects.requireNonNull(dataManager);
         this.playbackController = Objects.requireNonNull(playbackController);
-        this.videoView = Objects.requireNonNull(videoView);
         this.statusLabel = Objects.requireNonNull(statusLabel);
         this.mediaLoadTimeoutMs = mediaLoadTimeoutMs;
         this.errorHandler = Objects.requireNonNull(errorHandler);
         this.audioConverter = Objects.requireNonNull(audioConverter);
         this.audioExtractor = Objects.requireNonNull(audioExtractor);
-        this.videoConverter = Objects.requireNonNull(videoConverter);
-        this.previewProxyGenerator = Objects.requireNonNull(previewProxyGenerator);
         this.waveformExtractor = Objects.requireNonNull(waveformExtractor);
         this.mediaMenuStateUpdater = Objects.requireNonNull(mediaMenuStateUpdater);
         this.currentAudioFileSetter = Objects.requireNonNull(currentAudioFileSetter);
@@ -337,210 +310,92 @@ public final class MediaImportController {
     }
 
     public void loadImportedVideo(File videoFile, Runnable onComplete) {
+        activeVideoFile = videoFile;
         System.out.println("[DEBUG] 开始加载视频: " + videoFile.getAbsolutePath());
         System.out.println("[DEBUG] 文件大小: " + videoFile.length() + " bytes");
         System.out.println("[DEBUG] 文件存在: " + videoFile.exists());
-        playbackController.setCurrentVideoSourceFile(videoFile);  // 注册当前视频源，供JavaCV拖动预览解码使用
-        playbackController.setPreviewProxyFile(null);  // 切换新视频前先清空旧代理
 
+        long session = ++videoSession;
+        viewModel.setPlaying(false);
+        long expectedRevision = playbackController.getVideoRevision() + 1;
         playbackController.disposeVideo(() -> {
-            doLoadVideoWithRetry(videoFile, onComplete, 0, 3);
-        });
-    }
+            if (session != videoSession || playbackController.getVideoRevision() != expectedRevision || !videoFile.equals(activeVideoFile)) return;
+            String backend = System.getProperty("formation.video.backend", "mpv");
+            if ("ffmpeg".equals(backend)) {
+                loadSoftwareVideo(videoFile, onComplete, "使用兼容播放");
 
-    private void doLoadVideoWithRetry(File videoFile, Runnable onComplete, int attempt, int maxAttempts) {
-        System.out.println("[DEBUG] 加载视频尝试 " + (attempt + 1) + "/" + maxAttempts);
-
-        doLoadVideo(videoFile, onComplete, (errorMsg) -> {
-            if (attempt + 1 < maxAttempts) {
-                int delayMs = 500 * (attempt + 1);
-                System.out.println("[DEBUG] 加载失败，" + delayMs + "ms 后重试...");
-
-                PauseTransition retry = new PauseTransition(Duration.millis(delayMs));
-                retry.setOnFinished(e -> doLoadVideoWithRetry(videoFile, onComplete, attempt + 1, maxAttempts));
-                retry.play();
             } else {
-                System.err.println("[ERROR] 视频加载失败，已重试" + maxAttempts + "次");
-                errorHandler.show(
-                    "无法播放视频",
-                    "视频文件可能损坏或格式不兼容。\n\n" +
-                    "错误信息: " + errorMsg + "\n\n" +
-                    "建议：\n" +
-                    "1. 尝试重新导入视频\n" +
-                    "2. 使用格式转换工具转换为标准MP4格式\n" +
-                    "3. 检查视频文件是否完整"
-                );
-                if (onComplete != null) {
-                    onComplete.run();
-                }
-            }
-        });
-    }
-
-    private void doLoadVideo(File videoFile, Runnable onComplete) {
-        doLoadVideo(videoFile, onComplete, null);
-    }
-
-    private void doLoadVideo(File videoFile, Runnable onComplete, Consumer<String> onError) {
-        System.out.println("[DEBUG] doLoadVideo 开始执行，线程: " + Thread.currentThread().getName());
-
-        if (!Platform.isFxApplicationThread()) {
-            System.out.println("[DEBUG] 不在JavaFX线程，转入Platform.runLater");
-            Platform.runLater(() -> doLoadVideo(videoFile, onComplete, onError));
-            return;
-        }
-
-        try {
-            currentVideoFileSetter.accept(videoFile);
-            String uri = videoFile.toURI().toString();
-            System.out.println("[DEBUG] 视频URI: " + uri);
-
-            Media media = new Media(uri);
-            MediaPlayer newVideoPlayer = new MediaPlayer(media);
-            System.out.println("[DEBUG] MediaPlayer 已创建，等待 onReady...");
-
-            final AtomicBoolean callbackExecuted = new AtomicBoolean(false);
-
-            Runnable safeComplete = () -> {
-                if (callbackExecuted.compareAndSet(false, true) && onComplete != null) {
-                    onComplete.run();
-                }
-            };
-
-            newVideoPlayer.setOnReady(() -> {
-                System.out.println("[DEBUG] 视频播放器就绪 (onReady)");
-                playbackController.setVideoPlayer(newVideoPlayer, () -> {
-                    System.out.println("[DEBUG] 视频播放器预热完成，设置到 videoView");
-                    playbackController.setCurrentVideoSourceFile(videoFile);
-                    videoView.setMediaPlayer(newVideoPlayer);
-
+                statusLabel.setText("正在载入视频...");
+                playbackController.loadNativeVideo(videoFile, () -> {
+                    if (session != videoSession) return;
+                    currentVideoFileSetter.accept(videoFile);
                     DanceGroup group = viewModel.getCurrentGroup();
-                    if (group != null) {
-                        group.setReferenceVideoPath(videoFile.getAbsolutePath());
-                    }
-
+                    if (group != null) group.setReferenceVideoPath(videoFile.getAbsolutePath());
                     statusLabel.setText("已载入视频: " + videoFile.getName());
-                    // 后台生成预览代理，不阻塞主视频加载
-                    buildPreviewProxyAsync(videoFile);
-                    System.out.println("[DEBUG] 视频加载完成");
-                    safeComplete.run();
-                });
-            });
-
-            newVideoPlayer.setOnError(() -> {
-                MediaException error = newVideoPlayer.getError();
-                final String errorMsg;
-                final String errorType;
-
-                if (error != null) {
-                    errorMsg = error.getMessage();
-                    errorType = error.getType() != null ? error.getType().toString() : "NULL";
-                } else {
-                    errorMsg = "未知错误";
-                    errorType = "UNKNOWN";
-                }
-
-                System.err.println("[ERROR] 视频加载错误: " + errorMsg);
-                System.err.println("[ERROR] 错误类型: " + errorType);
-                System.err.println("[ERROR] 视频文件: " + videoFile.getAbsolutePath());
-                System.err.println("[ERROR] 文件大小: " + videoFile.length() + " bytes");
-
-                try {
-                    newVideoPlayer.dispose();
-                } catch (Exception e) {
-                    System.err.println("[ERROR] dispose异常: " + e.getMessage());
-                }
-
-                if (onError != null) {
-                    callbackExecuted.set(true);
-                    Platform.runLater(() -> onError.accept(errorMsg));
-                } else {
-                    Platform.runLater(() -> {
-                        errorHandler.show(
-                            "无法播放视频",
-                            "视频文件可能损坏或格式不兼容。\n\n" +
-                            "错误信息: " + errorMsg + "\n" +
-                            "错误类型: " + errorType + "\n\n" +
-                            "建议：\n" +
-                            "1. 尝试重新导入视频\n" +
-                            "2. 使用格式转换工具转换为标准MP4格式\n" +
-                            "3. 检查视频文件是否完整"
-                        );
-                        safeComplete.run();
+                    mediaMenuStateUpdater.run();
+                    if (onComplete != null) onComplete.run();
+                }, error -> {
+                    if (session != videoSession || !videoFile.equals(activeVideoFile)) return;
+                    System.err.println("[播放后端] libmpv 失败，切换 FFmpeg: " + error);
+                    long fallbackRevision = playbackController.getVideoRevision() + 1;
+                    playbackController.disposeVideo(() -> {
+                        if (session == videoSession && playbackController.getVideoRevision() == fallbackRevision
+                                && videoFile.equals(activeVideoFile)) loadSoftwareVideo(videoFile, onComplete, error);
                     });
-                }
-            });
-
-            PauseTransition timeout = new PauseTransition(Duration.seconds(10));
-            timeout.setOnFinished(e -> {
-                if (callbackExecuted.get()) {
-                    return;
-                }
-
-                System.err.println("[ERROR] 视频加载超时 (10秒)");
-                System.err.println("[ERROR] 视频文件: " + videoFile.getAbsolutePath());
-
-                try {
-                    newVideoPlayer.dispose();
-                } catch (Exception ex) {
-                    System.err.println("[ERROR] 超时dispose异常: " + ex.getMessage());
-                }
-
-                if (onError != null) {
-                    callbackExecuted.set(true);
-                    onError.accept("加载超时");
-                } else {
-                    safeComplete.run();
-                }
-            });
-            timeout.play();
-
-        } catch (Exception ex) {
-            System.err.println("[ERROR] 加载视频异常: " + ex.getMessage());
-            ex.printStackTrace();
-
-            if (onError != null) {
-                Platform.runLater(() -> onError.accept(ex.getMessage()));
-            } else {
-                Platform.runLater(() -> {
-                    errorHandler.show(
-                        "视频加载失败",
-                        "无法创建视频播放器。\n\n" +
-                        "错误: " + ex.getMessage() + "\n\n" +
-                        "请尝试重新导入视频。"
-                    );
-
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
                 });
             }
-        }
+        });
     }
 
-    /**
-     * 后台生成预览代理视频（用于拖动时间轴时的低开销预览）
-     */
-    private void buildPreviewProxyAsync(File sourceVideo) {
-        if (sourceVideo == null || !sourceVideo.exists()) {
-            return;
-        }
+    private void loadSoftwareVideo(File file, Runnable onComplete, String nativeError) {
+        long session = videoSession;
+        long revision = playbackController.getVideoRevision();
+        statusLabel.setText("正在准备兼容播放...");
+        playbackController.disposeAudio();
+        Thread prepare = new Thread(() -> {
+            File audio = null;
+            try { audio = audioExtractor.apply(file); }
+            catch (Exception error) { System.err.println("[兼容播放] 音频提取失败: " + error); }
+            File preparedAudio = audio;
+            Platform.runLater(() -> {
+                if (session != videoSession || playbackController.getVideoRevision() != revision || !file.equals(activeVideoFile)) return;
+                if (preparedAudio != null && preparedAudio.isFile()) {
+                    playbackController.loadAudio(preparedAudio,
+                        () -> { if (session == videoSession && playbackController.getVideoRevision() == revision) startSoftwareVideo(file, onComplete, nativeError); },
+                        error -> {
+                            if (session != videoSession || playbackController.getVideoRevision() != revision) return;
+                            errorHandler.show("兼容播放音频加载失败", error);
+                            statusLabel.setText("视频导入失败");
+                        });
+                } else startSoftwareVideo(file, onComplete, nativeError);
+            });
+        }, "FallbackAudioPreparation");
+        prepare.setDaemon(true);
+        prepare.start();
+    }
 
-        Thread proxyThread = new Thread(() -> {
-            try {
-                File proxyFile = previewProxyGenerator.apply(sourceVideo);
-                if (proxyFile != null && proxyFile.exists() && proxyFile.length() > 0) {
-                    playbackController.setPreviewProxyFile(proxyFile);
-                    System.out.println("[代理视频] 已注册代理预览: " + proxyFile.getName());
-                } else {
-                    System.out.println("[代理视频] 代理生成失败，继续使用原视频预览");
-                }
-            } catch (Exception e) {
-                System.err.println("[代理视频] 代理生成线程异常: " + e.getMessage());
-            }
-        }, "ProxyVideoBuilder");
-        proxyThread.setDaemon(true);
-        proxyThread.start();
+    private void startSoftwareVideo(File file, Runnable onComplete, String nativeError) {
+        long session = videoSession;
+        statusLabel.setText("正在使用兼容播放载入视频...");
+        playbackController.loadSoftwareVideo(file, () -> {
+            if (session != videoSession || !file.equals(activeVideoFile)) return;
+            currentVideoFileSetter.accept(file);
+            DanceGroup group = viewModel.getCurrentGroup();
+            if (group != null) group.setReferenceVideoPath(file.getAbsolutePath());
+            statusLabel.setText("已载入视频（兼容播放）: " + file.getName());
+            mediaMenuStateUpdater.run();
+            if (onComplete != null) onComplete.run();
+        }, error -> {
+            if (session != videoSession || !file.equals(activeVideoFile)) return;
+            playbackController.disposeVideo();
+            currentVideoFileSetter.accept(null);
+            statusLabel.setText("视频导入失败");
+            mediaMenuStateUpdater.run();
+            com.formationtool.desktop.media.VideoDiagnostics.logDecodeFailure(file);
+            errorHandler.show("无法载入视频", "主播放内核和兼容播放均未能加载该视频。\n\n"
+                + "主播放内核: " + nativeError + "\nFFmpeg: " + error
+                + "\n文件: " + file.getAbsolutePath());
+        });
     }
 
     public void importVideo(Stage owner) {
@@ -566,88 +421,18 @@ public final class MediaImportController {
         }
 
         statusLabel.setText("正在检测视频格式: " + file.getName() + "...");
+        activeVideoFile = null;
+        CountDownLatch released = new CountDownLatch(1);
+        viewModel.setPlaying(false);
+        playbackController.disposeVideo(released::countDown);
 
         Thread loadThread = new Thread(() -> {
             try {
-                String fileName = file.getName().toLowerCase();
-                boolean needsConversion = false;
-                String detectionIssue = null;
-
-                // Follow the same principle as OpenCut's media pipeline: decide
-                // from the actual stream decoder, not from the filename suffix.
-                // This also prevents silent videos from being treated as invalid.
-                VideoCompatibility compatibility = probeJavaFxVideo(file);
-                if (!compatibility.supported) {
-                    needsConversion = true;
-                    detectionIssue = compatibility.issue;
-                    System.out.println("[视频导入] JavaFX 无法解码视频: " + detectionIssue);
+                if (!released.await(mediaLoadTimeoutMs, TimeUnit.MILLISECONDS)) {
+                    throw new IllegalStateException("旧视频资源释放超时，请重试导入");
                 }
-
-                if (needsConversion) {
-                    final boolean[] userConfirmed = {false};
-                    final CountDownLatch confirmLatch = new CountDownLatch(1);
-                    final String finalIssue = detectionIssue;
-
-                    Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-                        alert.setTitle("视频格式问题");
-                        alert.setHeaderText("检测到视频可能存在兼容性问题");
-                        alert.setContentText(
-                            "当前视频: " + file.getName() + "\n" +
-                            "格式: " + fileName.substring(fileName.lastIndexOf(".")) + "\n" +
-                            "问题: " + finalIssue + "\n\n" +
-                            "是否将视频重新编码为标准 MP4 格式？\n" +
-                            "(转换可能需要一些时间)\n" +
-                            "转换后的视频将包含兼容的音视频编码。"
-                        );
-
-                        ButtonType buttonTypeYes = new ButtonType("转换", ButtonBar.ButtonData.YES);
-                        ButtonType buttonTypeNo = new ButtonType("取消", ButtonBar.ButtonData.NO);
-                        alert.getButtonTypes().setAll(buttonTypeYes, buttonTypeNo);
-
-                        Optional<ButtonType> result = alert.showAndWait();
-                        userConfirmed[0] = result.isPresent() && result.get() == buttonTypeYes;
-                        confirmLatch.countDown();
-                    });
-
-                    confirmLatch.await();
-
-                    if (!userConfirmed[0]) {
-                        Platform.runLater(() -> statusLabel.setText("已取消导入视频"));
-                        return;
-                    }
-                }
-
-                File videoToLoad = file;
-                if (needsConversion) {
-                    System.out.println("[视频导入] 开始转换视频格式: " + file.getName());
-                    Platform.runLater(() -> statusLabel.setText("正在转换视频格式: " + file.getName() + "..."));
-                    videoToLoad = videoConverter.apply(file);
-                    if (videoToLoad == null) {
-                        Platform.runLater(() -> {
-                            errorHandler.show("导入失败", "视频格式转换失败，请检查文件是否损坏。");
-                            statusLabel.setText("视频导入失败");
-                        });
-                        return;
-                    }
-                    System.out.println("[视频导入] 视频转换成功: " + videoToLoad.getName());
-
-                    VideoCompatibility convertedCompatibility = probeJavaFxVideo(videoToLoad);
-                    if (!convertedCompatibility.supported) {
-                        final String convertedIssue = convertedCompatibility.issue;
-                        Platform.runLater(() -> {
-                            errorHandler.show(
-                                "视频转换后仍无法播放",
-                                "已生成兼容 MP4，但当前系统的视频解码组件仍无法加载它。\n\n" +
-                                "错误信息: " + convertedIssue
-                            );
-                            statusLabel.setText("视频导入失败");
-                        });
-                        return;
-                    }
-                }
-
-                final File finalVideoFile = videoToLoad;
+                // 原片直接交给独立播放内核，音频提取仅用于波形及兼容播放。
+                final File finalVideoFile = file;
                 File extractedAudio = audioExtractor.apply(finalVideoFile);
 
                 Platform.runLater(() -> {
@@ -703,64 +488,4 @@ public final class MediaImportController {
         loadThread.start();
     }
 
-    /**
-     * Ask the same JavaFX pipeline used by the preview to load the file.  This
-     * is deliberately run for MP4 too: MP4 identifies only the container, not
-     * a playable codec combination.
-     */
-    private VideoCompatibility probeJavaFxVideo(File videoFile) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean finished = new AtomicBoolean(false);
-        AtomicBoolean supported = new AtomicBoolean(false);
-        AtomicReference<String> issue = new AtomicReference<>("未知错误");
-        AtomicReference<MediaPlayer> playerRef = new AtomicReference<>();
-
-        Platform.runLater(() -> {
-            try {
-                MediaPlayer player = new MediaPlayer(new Media(videoFile.toURI().toString()));
-                playerRef.set(player);
-
-                player.setOnReady(() -> {
-                    supported.set(true);
-                    finishVideoProbe(player, finished, latch);
-                });
-                player.setOnError(() -> {
-                    MediaException error = player.getError();
-                    issue.set(error != null && error.getMessage() != null ? error.getMessage() : "JavaFX 无法解码该视频");
-                    finishVideoProbe(player, finished, latch);
-                });
-            } catch (Exception e) {
-                issue.set(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-                if (finished.compareAndSet(false, true)) {
-                    latch.countDown();
-                }
-            }
-        });
-
-        if (!latch.await(mediaLoadTimeoutMs, TimeUnit.MILLISECONDS)) {
-            issue.set("Media load timeout (" + (mediaLoadTimeoutMs / 1000) + "s)");
-            if (finished.compareAndSet(false, true)) {
-                MediaPlayer player = playerRef.get();
-                if (player != null) {
-                    Platform.runLater(() -> disposeMediaPlayer(player));
-                }
-            }
-        }
-        return new VideoCompatibility(supported.get(), issue.get());
-    }
-
-    private static void finishVideoProbe(MediaPlayer player, AtomicBoolean finished, CountDownLatch latch) {
-        if (finished.compareAndSet(false, true)) {
-            disposeMediaPlayer(player);
-            latch.countDown();
-        }
-    }
-
-    private static void disposeMediaPlayer(MediaPlayer player) {
-        try {
-            player.dispose();
-        } catch (Exception ignored) {
-            // A completed probe can race with the JavaFX media shutdown path.
-        }
-    }
 }

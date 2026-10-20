@@ -51,6 +51,7 @@ public class FormationViewModel {
     public void createNewGroup(String name, int dancerCount, float stageWidth, float stageDepth) {
         DanceGroup group = new DanceGroup(UUID.randomUUID().toString(), name, stageWidth, stageDepth);
         group.setDancerCount(dancerCount);
+        group.setStandardMode(true);
 
         // 创建初始队形
         Formation initialFormation = new Formation(
@@ -60,13 +61,12 @@ public class FormationViewModel {
         );
 
         //
-        float spacing = stageWidth / (dancerCount + 1);
         for (int i = 0; i < dancerCount; i++) {
             Dancer dancer = new Dancer(
                 UUID.randomUUID().toString(),
                 "Dancer " + (i + 1),
-                spacing * (i + 1) - stageWidth / 2,
-                0f,
+                -stageWidth / 2 - group.getBackstageWidth() / 2,
+                stageDepth / 2 - (i + 1f) * stageDepth / (dancerCount + 1f),
                 getDefaultColor(i)
             );
             initialFormation.getDancers().add(dancer);
@@ -95,8 +95,10 @@ public class FormationViewModel {
 
         //
         //
-        float newX = 0f;  // 中间位置
-        float newY = halfDepth - 1f;
+        // 新成员先放在左右台下，避免覆盖台上已编排的位置。
+        float newX = (currentCount % 2 == 0 ? -1 : 1) * (halfWidth + group.getBackstageWidth() / 2);
+        float newY = halfDepth - 1f - (currentCount / 2 % Math.max(1, (int) group.getStageDepth() - 1));
+        group.setBackstageVisible(true);
 
         //
         for (Formation formation : group.getFormations()) {
@@ -115,6 +117,28 @@ public class FormationViewModel {
     }
 
     //
+    /** 将人员模板展开成工程内的独立舞者，只保存一次撤销快照。 */
+    public void replaceDancerRoster(List<Dancer> roster) {
+        DanceGroup group = getCurrentGroup();
+        if (group == null || roster == null || roster.isEmpty()) return;
+        undoManager.saveSnapshot(group);
+        for (Formation formation : group.getFormations()) {
+            List<Dancer> dancers = new ArrayList<>();
+            int rows = (roster.size() + 1) / 2;
+            for (int i = 0; i < roster.size(); i++) {
+                Dancer dancer = roster.get(i).copy();
+                dancer.setSelected(false);
+                dancer.setX((i % 2 == 0 ? -1 : 1) * (group.getStageWidth() / 2 + group.getBackstageWidth() / 2));
+                dancer.setY(group.getStageDepth() / 2 - (i / 2 + 1f) * group.getStageDepth() / (rows + 1f));
+                dancers.add(dancer);
+            }
+            formation.setDancers(dancers);
+        }
+        group.setDancerCount(roster.size());
+        group.setBackstageVisible(true);
+        notifyGroupChange();
+    }
+
     public void deleteDancer(String dancerId) {
         DanceGroup group = currentGroup.get();
         if (group == null) return;
@@ -141,7 +165,7 @@ public class FormationViewModel {
 
         for (Dancer dancer : formation.getDancers()) {
             if (dancer.getId().equals(dancerId)) {
-                dancer.setX(Math.max(-halfWidth, Math.min(halfWidth, x)));
+                dancer.setX(Math.max(-halfWidth - group.getBackstageWidth(), Math.min(halfWidth + group.getBackstageWidth(), x)));
                 dancer.setY(Math.max(-halfDepth, Math.min(halfDepth, y)));
                 break;
             }
@@ -282,42 +306,24 @@ public class FormationViewModel {
      */
     public void deleteFormation(int index) {
         DanceGroup group = currentGroup.get();
-        if (group == null || group.getFormations().size() <= 1) return;
-
-        //
-        if (index <= 0) return;
-
-        //
+        if (group == null || group.getFormations().size() <= 1
+                || index < 0 || index >= group.getFormations().size()) return;
         undoManager.saveSnapshot(group);
-
-        //
-        Formation deletedFormation = group.getFormations().get(index);
-        long deletedRedStart = deletedFormation.getTimestamp() - deletedFormation.getDuration();
-
-        //
-        Formation prevFormation = group.getFormations().get(index - 1);
-        long prevGreenEnd = prevFormation.getTimestamp() + prevFormation.getHoldDuration();
-
-        //
         group.getFormations().remove(index);
-
-        //
-        //
-        if (index < group.getFormations().size()) {
-            Formation nextFormation = group.getFormations().get(index);
-            //
-            long newRedDuration = nextFormation.getTimestamp() - prevGreenEnd;
-            nextFormation.setDuration(Math.max(0L, newRedDuration));
+        if (index == 0) {
+            // 首队形补齐至零时刻，保留后续时间位置。
+            Formation first = group.getFormations().get(0);
+            first.setHoldDuration(first.getTimestamp() + first.getHoldDuration());
+            first.setTimestamp(0L);
+            first.setDuration(0L);
+        } else if (index < group.getFormations().size()) {
+            Formation previous = group.getFormations().get(index - 1);
+            Formation next = group.getFormations().get(index);
+            next.setDuration(Math.max(0L, next.getTimestamp() - previous.getTimestamp() - previous.getHoldDuration()));
         }
-        //
-
-        // 调整当前队形索引
-        if (currentFormationIndex.get() >= group.getFormations().size()) {
-            currentFormationIndex.set(group.getFormations().size() - 1);
-        } else if (currentFormationIndex.get() == index) {
-            currentFormationIndex.set(Math.max(0, index - 1));
-        }
-
+        int selected = currentFormationIndex.get();
+        currentFormationIndex.set(Math.max(0, Math.min(group.getFormations().size() - 1,
+            selected >= index ? selected - 1 : selected)));
         notifyGroupChange();
     }
 
@@ -426,6 +432,43 @@ public class FormationViewModel {
     /**
      *
      */
+    public boolean isStandardMode() {
+        return getCurrentGroup() != null && getCurrentGroup().isStandardMode();
+    }
+
+    public void setStandardMode(boolean standardMode) {
+        DanceGroup group = getCurrentGroup();
+        if (group == null || group.isStandardMode() == standardMode) return;
+        undoManager.saveSnapshot(group);
+        group.setStandardMode(standardMode);
+        notifyGroupChange();
+    }
+
+    /** 在播放位置插入新区间；若位置已有队形，则顺序追加到当前区间后。 */
+    public Formation addFormationInterval() {
+        DanceGroup group = getCurrentGroup();
+        if (group == null || group.getFormations().isEmpty()) return null;
+        long timestamp = getCurrentTime();
+        Formation selected = group.getFormations().get(getCurrentFormationIndex());
+        boolean occupied = group.getFormations().stream().anyMatch(f -> f.getTimestamp() == getCurrentTime());
+        if (occupied) timestamp = selected.getTimestamp() + selected.getHoldDuration() + 2000;
+        if (getAudioDuration() > 0 && timestamp >= getAudioDuration()) return null;
+        Formation inserted = insertKeyframeSmart(timestamp, null);
+        if (inserted != null) {
+            setCurrentTime(timestamp);
+            setCurrentFormationIndex(group.getFormations().indexOf(inserted));
+        }
+        return inserted;
+    }
+
+    public void setBackstageVisible(boolean visible) {
+        DanceGroup group = getCurrentGroup();
+        if (group == null || group.isBackstageVisible() == visible) return;
+        undoManager.saveSnapshot(group);
+        group.setBackstageVisible(visible);
+        notifyGroupChange();
+    }
+
     public boolean isDirty() {
         return isDirty;
     }
@@ -477,6 +520,12 @@ public class FormationViewModel {
 
     public LongProperty audioDurationProperty() { return audioDuration; }
     public long getAudioDuration() { return audioDuration.get(); }
+    /** 未导入音乐时，标准模式仍按已有队形显示时间轴。 */
+    public long getTimelineDuration() {
+        if (audioDuration.get() > 0 || !isStandardMode()) return audioDuration.get();
+        return getCurrentGroup().getFormations().stream()
+            .mapToLong(f -> f.getTimestamp() + f.getHoldDuration()).max().orElse(0);
+    }
     public void setAudioDuration(long duration) { audioDuration.set(duration); }
 
     /**
@@ -497,7 +546,8 @@ public class FormationViewModel {
 
         if (isLastFormation) {
             //
-            long maxHoldDuration = audioDuration.get() - formation.getTimestamp();
+            long maxHoldDuration = audioDuration.get() > 0
+                ? audioDuration.get() - formation.getTimestamp() : Long.MAX_VALUE;
             newHoldDuration = Math.max(0L, Math.min(newHoldDuration, maxHoldDuration));
             formation.setHoldDuration(newHoldDuration);
             //
@@ -546,16 +596,12 @@ public class FormationViewModel {
         Formation formation = formations.get(formationIndex);
         Formation prevFormation = formations.get(formationIndex - 1);
 
-        //
-        long prevGreenEnd = prevFormation.getTimestamp() + prevFormation.getHoldDuration();
-
-        //
-        long maxRedDuration = formation.getTimestamp() - prevGreenEnd;
-        newTransitionDuration = Math.max(0L, Math.min(newTransitionDuration, maxRedDuration));
-
+        // 固定到达此队形的时间，前一队形的保持区与变化区相接。
+        long maxDuration = Math.max(0L, formation.getTimestamp() - prevFormation.getTimestamp() - 1L);
+        newTransitionDuration = Math.max(0L, Math.min(newTransitionDuration, maxDuration));
         formation.setDuration(newTransitionDuration);
+        prevFormation.setHoldDuration(formation.getTimestamp() - prevFormation.getTimestamp() - newTransitionDuration);
 
-        //
         notifyGroupChange();
     }
 
@@ -797,6 +843,13 @@ public class FormationViewModel {
 
         // 获取模板（第一个队形作为参考）
         Formation template = formations.isEmpty() ? null : formations.get(0);
+        if (isStandardMode()) {
+            // 新区间继承前一区间，避免回到初始队形。
+            for (Formation candidate : formations) {
+                if (candidate.getTimestamp() <= timestamp) template = candidate;
+                else break;
+            }
+        }
 
         //
         Formation newFormation = new Formation(

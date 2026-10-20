@@ -402,7 +402,7 @@ public final class DesktopDialogController {
         float currentDepth = group.getStageDepth();
 
         Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("舞台尺寸设置");
+        dialog.setTitle("舞台设置");
         dialog.setHeaderText("设置舞台尺寸（米）");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -428,6 +428,10 @@ public final class DesktopDialogController {
         grid.add(depthLabel, 0, 1);
         grid.add(depthField, 1, 1);
         grid.add(hintLabel, 1, 2);
+        javafx.scene.control.CheckBox backstageSwitch = new javafx.scene.control.CheckBox("显示左右台下区域");
+        backstageSwitch.setSelected(group.isBackstageVisible());
+        backstageSwitch.setStyle("-fx-text-fill: white;");
+        grid.add(backstageSwitch, 1, 3);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -459,6 +463,7 @@ public final class DesktopDialogController {
                 group.setStageWidth(newWidth);
                 group.setStageDepth(newDepth);
 
+                viewModel.setBackstageVisible(backstageSwitch.isSelected());
                 stageView.updateStageSize(newWidth, newDepth);
                 dataManager.saveProject(group);
 

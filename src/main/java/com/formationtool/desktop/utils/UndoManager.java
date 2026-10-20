@@ -134,6 +134,8 @@ public class UndoManager {
         DanceGroupSnapshot snapshot = new DanceGroupSnapshot();
         snapshot.id = group.getId();
         snapshot.name = group.getName();
+        snapshot.standardMode = group.isStandardMode();
+        snapshot.backstageVisible = group.isBackstageVisible();
         snapshot.stageWidth = group.getStageWidth();
         snapshot.stageDepth = group.getStageDepth();
         snapshot.dancerCount = group.getDancerCount();
@@ -180,6 +182,8 @@ public class UndoManager {
 
         // 恢复基本属性
         currentGroup.setDancerCount(snapshot.dancerCount);
+        currentGroup.setStandardMode(snapshot.standardMode);
+        currentGroup.setBackstageVisible(snapshot.backstageVisible);
 
         // 恢复 formations
         for (FormationSnapshot fs : snapshot.formations) {
@@ -206,6 +210,8 @@ public class UndoManager {
     private static class DanceGroupSnapshot {
         String id;
         String name;
+        boolean standardMode;
+        boolean backstageVisible;
         float stageWidth;
         float stageDepth;
         int dancerCount;

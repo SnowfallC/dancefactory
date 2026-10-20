@@ -174,3 +174,151 @@
     -fx-text-fill: white;
     -fx-background-radius: 5;
 }
+
+/* 编排模式与台下开关 */
+.mode-toggle {
+    -fx-background-color: #3A3A4F;
+    -fx-text-fill: #CBD5E1;
+    -fx-background-radius: 12;
+    -fx-padding: 4 10;
+    -fx-cursor: hand;
+}
+.mode-toggle:selected {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+}
+
+/* 本机预设编辑器的深色控件 */
+.preset-dialog .header-panel,
+.preset-dialog .scroll-pane,
+.preset-dialog .scroll-pane > .viewport {
+    -fx-background-color: #1E1E2E;
+}
+.preset-dialog .color-picker {
+    -fx-background-color: #3A3A4F;
+    -fx-background-radius: 5;
+}
+
+/* 人员模板的卡片、层级与主要操作 */
+.preset-dialog {
+    -fx-base: #1D2A3D;
+    -fx-background: #141D2C;
+    -fx-control-inner-background: #1D2A3D;
+    -fx-text-base-color: #EDF3FC;
+    -fx-text-inner-color: #EDF3FC;
+    -fx-box-border: #34455F;
+    -fx-focus-color: #6399FF;
+    -fx-faint-focus-color: transparent;
+    -fx-background-color: #141D2C;
+    -fx-font-family: "Microsoft YaHei UI";
+    -fx-font-size: 12px;
+}
+.preset-dialog > .content,
+.preset-dialog > .button-bar > .container,
+.preset-dialog .scroll-pane,
+.preset-dialog .scroll-pane > .viewport {
+    -fx-background-color: #141D2C;
+}
+.preset-dialog .preset-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #EDF3FC;
+}
+
+.preset-dialog .preset-column-headings .label {
+    -fx-text-fill: #95A5BC;
+    -fx-font-size: 11px;
+}
+.preset-dialog .preset-count-badge {
+    -fx-text-fill: #A8C5FF;
+    -fx-background-color: #243854;
+    -fx-background-radius: 12;
+    -fx-padding: 4 9;
+    -fx-font-size: 11px;
+}
+.preset-dialog .preset-settings-card {
+    -fx-padding: 16;
+    -fx-background-color: #1D2A3E;
+    -fx-background-radius: 10;
+    -fx-border-color: #2B3B53;
+    -fx-border-radius: 10;
+}
+.preset-dialog .preset-field-label,
+.preset-dialog .preset-section-title {
+    -fx-text-fill: #D5E0EF;
+    -fx-font-weight: bold;
+}
+.preset-dialog .text-field {
+    -fx-background-color: #142033;
+    -fx-border-color: #34455F;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-text-fill: #EDF3FC;
+    -fx-prompt-text-fill: #7D8FA8;
+    -fx-padding: 7 9;
+}
+.preset-dialog .text-field:focused {
+    -fx-border-color: #6399FF;
+}
+.preset-dialog .preset-member-row {
+    -fx-padding: 7 10;
+    -fx-background-color: #1D2A3D;
+    -fx-background-radius: 7;
+}
+.preset-dialog .preset-member-number {
+    -fx-background-color: #293F5E;
+    -fx-background-radius: 7;
+    -fx-text-fill: #9DBFFF;
+    -fx-font-weight: bold;
+}
+.preset-dialog .preset-member-name {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.preset-dialog .color-picker {
+    -fx-background-color: #2C405C;
+    -fx-padding: 7 9;
+}
+.preset-dialog .button {
+    -fx-background-color: #2C3D55;
+    -fx-padding: 8 13;
+}
+.preset-dialog .button:hover {
+    -fx-background-color: #3B5272;
+}
+.preset-dialog .preset-primary-action {
+    -fx-background-color: #3E7CF4;
+    -fx-font-weight: bold;
+}
+.preset-dialog .preset-primary-action:hover {
+    -fx-background-color: #6095FF;
+}
+.preset-dialog .preset-error {
+    -fx-text-fill: #FF9C9C;
+}
+.preset-dialog .preset-column-headings {
+    -fx-padding: 0 10;
+}
+
+.preset-dialog .spinner,
+.preset-dialog .spinner .increment-arrow-button,
+.preset-dialog .spinner .decrement-arrow-button {
+    -fx-background-color: #2C405C;
+}
+.preset-dialog .spinner .increment-arrow,
+.preset-dialog .spinner .decrement-arrow {
+    -fx-background-color: #CBD8EC;
+}
+.preset-dialog .header-panel {
+    -fx-background-color: #141D2C;
+}
+
+/* 颜色选择弹层是独立容器，单独设置底色。 */
+.color-palette,
+.custom-color-dialog {
+    -fx-base: #1D2A3D;
+    -fx-background: #141D2C;
+    -fx-control-inner-background: #1D2A3D;
+    -fx-text-base-color: #EDF3FC;
+    -fx-background-color: #141D2C;
+}

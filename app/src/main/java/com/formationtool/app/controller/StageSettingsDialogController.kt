@@ -22,6 +22,7 @@ object StageSettingsDialogController {
         renderer: FormationRenderer,
         autoSnap: Boolean,
         onStageSizeChanged: (Float, Float) -> Unit,
+        onBackstageChanged: (Boolean) -> Unit,
         onAutoSnapChanged: (Boolean) -> Unit
     ) {
         if (group == null) {
@@ -127,6 +128,9 @@ object StageSettingsDialogController {
         val nameSwitch = nameRow.second
         container.addView(nameRow.first)
 
+        val backstageRow = buildSwitchRow(context, "显示左右台下区域：", group.backstageVisible)
+        container.addView(backstageRow.first)
+
         val snapRow = buildSwitchRow(
             context,
             "自动吸附（拖动时自动吸附到半格）：",
@@ -152,6 +156,7 @@ object StageSettingsDialogController {
                     renderer.showCenterLine = centerLineSwitch.isChecked
                     renderer.flipped = flipSwitch.isChecked
                     renderer.showDancerNames = nameSwitch.isChecked
+                    onBackstageChanged(backstageRow.second.isChecked)
                     onAutoSnapChanged(snapSwitch.isChecked)
 
                     Toast.makeText(context, "舞台设置已更新", Toast.LENGTH_SHORT).show()

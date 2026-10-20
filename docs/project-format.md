@@ -1,6 +1,6 @@
 # `.ftproj` 工程格式
 
-`.ftproj` 是 ZIP 容器。1.1.5 导入器只接受以下结构：
+`.ftproj` 是 ZIP 容器。1.1.6 导入器只接受以下结构：
 
 ```text
 project.json

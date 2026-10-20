@@ -11,7 +11,6 @@ import com.formationtool.desktop.viewmodel.FormationViewModel;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.DialogPane;
-import javafx.scene.media.MediaPlayer;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -67,10 +66,7 @@ public final class ExportFlowController {
         }
 
         long duration = viewModel.getAudioDuration();
-        MediaPlayer videoPlayer = (playbackController != null) ? playbackController.getVideoPlayer() : null;
-        if (duration <= 0 && videoPlayer != null && videoPlayer.getMedia() != null) {
-            duration = (long) videoPlayer.getMedia().getDuration().toMillis();
-        }
+        if (duration <= 0 && playbackController != null) duration = playbackController.getVideoDurationMs();
         if (duration <= 0) {
             errorHandler.show("导出失败", "请先导入音频或视频");
             return;

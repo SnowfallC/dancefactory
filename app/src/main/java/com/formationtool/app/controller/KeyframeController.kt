@@ -126,7 +126,7 @@ class KeyframeController(
      * - 再次按F：保存红色区长度，创建新关键帧，开始绿色区
      */
     fun handleFKeyPressed() {
-        if (isFKeyPressed) return
+        if (isFKeyPressed || viewModel.currentGroup.value?.standardMode == true) return
 
         val group = viewModel.currentGroup.value
         if (group == null || group.formations.isEmpty()) return

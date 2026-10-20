@@ -82,8 +82,12 @@ data class DanceGroup(
     var thumbnailPath: String? = null,  // 缩略图路径
     var createdTime: Long = System.currentTimeMillis(),
     var modifiedTime: Long = System.currentTimeMillis(),
+    var standardMode: Boolean = false,
+    var backstageVisible: Boolean = true,
     var updateVersion: Long = 0  // 版本号，用于强制触发StateFlow更新
 ) : Parcelable
+
+fun DanceGroup.backstageWidth(): Float = maxOf(2f, stageWidth * 0.2f)
 
 /**
  * 颜色组别
@@ -122,3 +126,8 @@ enum class InterpolationType {
     BOUNCE,         // 弹跳
     OVERSHOOT       // 超越
 }
+
+
+// 点选队形时只定位到离播放头最近的区间边缘，区间内保持当前位置。
+fun Formation.selectionTime(currentTime: Long): Long =
+    currentTime.coerceIn(timestamp, timestamp + holdDuration)

@@ -15,7 +15,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.media.MediaView;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 
@@ -48,21 +47,15 @@ public final class MainLayoutFactory {
 
     public static final class VideoSectionResult {
         private final StackPane videoSection;
-        private final MediaView videoView;
         private final ImageView previewImageView;
 
-        public VideoSectionResult(StackPane videoSection, MediaView videoView, ImageView previewImageView) {
+        public VideoSectionResult(StackPane videoSection, ImageView previewImageView) {
             this.videoSection = videoSection;
-            this.videoView = videoView;
             this.previewImageView = previewImageView;
         }
 
         public StackPane getVideoSection() {
             return videoSection;
-        }
-
-        public MediaView getVideoView() {
-            return videoView;
         }
 
         public ImageView getPreviewImageView() {
@@ -112,6 +105,7 @@ public final class MainLayoutFactory {
         Runnable onApplyNijigasakiPreset,
         Runnable onApplyLiellasPreset,
         Runnable onApplyHasunosoraPreset,
+        Runnable onManageCustomPresets,
         Runnable onShowStageSizeDialog,
         Runnable onCheckForUpdates,
         Runnable onShowAboutDialog
@@ -177,6 +171,10 @@ public final class MainLayoutFactory {
             hasunosoraPreset
         );
 
+        MenuItem customPresets = new MenuItem("自定义预设…");
+        customPresets.setOnAction(event -> onManageCustomPresets.run());
+        presetsMenu.getItems().addAll(new javafx.scene.control.SeparatorMenuItem(), customPresets);
+
         Menu settingsMenu = new Menu("设置");
         MenuItem stageSizeMenuItem = new MenuItem("舞台尺寸设置");
         stageSizeMenuItem.setOnAction(e -> onShowStageSizeDialog.run());
@@ -187,7 +185,9 @@ public final class MainLayoutFactory {
         MenuItem about = new MenuItem("关于");
         checkUpdates.setOnAction(e -> onCheckForUpdates.run());
         about.setOnAction(e -> onShowAboutDialog.run());
-        helpMenu.getItems().addAll(checkUpdates, new javafx.scene.control.SeparatorMenuItem(), about);
+        MenuItem openLogs = new MenuItem("打开日志文件夹");
+        openLogs.setOnAction(event -> DiagnosticDialogs.openLogFolder());
+        helpMenu.getItems().addAll(checkUpdates, openLogs, new javafx.scene.control.SeparatorMenuItem(), about);
 
         menuBar.getMenus().addAll(fileMenu, presetsMenu, settingsMenu, helpMenu);
 
@@ -305,13 +305,9 @@ public final class MainLayoutFactory {
         videoSection.setStyle("-fx-background-color: #1E1E2E; -fx-border-color: #2A2A3F; -fx-border-width: 1; -fx-background-radius: 5; -fx-border-radius: 5;");
         videoSection.setPadding(new Insets(10));
 
-        MediaView videoView = new MediaView();
-        videoView.setPreserveRatio(true);
-        playbackController.bindVideoView(videoView);
-
         ImageView previewImageView = new ImageView();
         previewImageView.setPreserveRatio(true);
-        // 预览图层必须参与StackPane布局，才能与MediaView保持同一中心点
+        // 视频图层参与布局，在可用区域内居中并保持原始比例。
         previewImageView.setManaged(true);
         previewImageView.setVisible(false);
         previewImageView.setMouseTransparent(true);
@@ -330,11 +326,13 @@ public final class MainLayoutFactory {
         StackPane.setMargin(videoContainer, new Insets(35, 10, 10, 10));
 
         Label noVideoLabel = new Label("未导入视频\n点击菜单 → 文件 → 导入视频");
+        noVideoLabel.setId("video-empty-placeholder");
+        noVideoLabel.setMouseTransparent(true);
         noVideoLabel.setTextFill(Color.rgb(136, 136, 153));
         noVideoLabel.setStyle("-fx-font-size: 14px; -fx-text-alignment: center;");
         noVideoLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 
-        videoContainer.getChildren().addAll(videoView, previewImageView, noVideoLabel);
+        videoContainer.getChildren().addAll(previewImageView, noVideoLabel);
 
         videoContainer.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
             double containerWidth = newBounds.getWidth();
@@ -342,11 +340,6 @@ public final class MainLayoutFactory {
             if (containerWidth > 50 && containerHeight > 50) {
                 double targetFitW = containerWidth - 20;
                 double targetFitH = containerHeight - 20;
-                if (Math.abs(videoView.getFitWidth() - targetFitW) > 1.0
-                        || Math.abs(videoView.getFitHeight() - targetFitH) > 1.0) {
-                    videoView.setFitWidth(targetFitW);
-                    videoView.setFitHeight(targetFitH);
-                }
                 if (Math.abs(previewImageView.getFitWidth() - targetFitW) > 1.0
                         || Math.abs(previewImageView.getFitHeight() - targetFitH) > 1.0) {
                     previewImageView.setFitWidth(targetFitW);
@@ -355,13 +348,15 @@ public final class MainLayoutFactory {
             }
         });
 
-        videoView.mediaPlayerProperty().addListener((obs, oldPlayer, newPlayer) -> {
-            noVideoLabel.setVisible(newPlayer == null);
-        });
+        // 两个视频后端共用图像图层，空状态直接跟随实际画面。
+        noVideoLabel.visibleProperty().bind(javafx.beans.binding.Bindings.createBooleanBinding(
+                () -> !previewImageView.isVisible() || previewImageView.getImage() == null,
+                previewImageView.visibleProperty(), previewImageView.imageProperty()));
+        noVideoLabel.managedProperty().bind(noVideoLabel.visibleProperty());
 
         videoSection.getChildren().addAll(videoContainer, title);
 
-        return new VideoSectionResult(videoSection, videoView, previewImageView);
+        return new VideoSectionResult(videoSection, previewImageView);
     }
 
     public static BottomBarResult createBottomControlBar(

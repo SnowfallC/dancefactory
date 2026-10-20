@@ -45,10 +45,14 @@ class DataManagerTest {
         DataManager dataManager = new DataManager();
         DanceGroup group = createGroup("project-save-load");
 
+        group.setStandardMode(true);
+        group.setBackstageVisible(true);
         boolean saved = dataManager.saveProject(group);
         DanceGroup loaded = dataManager.loadProject(group.getId());
 
         assertTrue(saved);
+        assertTrue(loaded.isStandardMode());
+        assertTrue(loaded.isBackstageVisible());
         assertNotNull(loaded);
         assertEquals(group.getId(), loaded.getId());
         assertEquals(group.getName(), loaded.getName());
@@ -190,5 +194,33 @@ class DataManagerTest {
         group.getFormations().add(formation);
         group.setDancerCount(formation.getDancers().size());
         return group;
+    }
+    @Test
+    void shouldOpenProjectAfterLocalPresetIsUnavailable() throws Exception {
+        Path presetFile = tempDir.resolve("Presets/custom-teams.json");
+        CustomTeamPresetStore store = new CustomTeamPresetStore(presetFile);
+        store.save(new com.formationtool.desktop.model.CustomTeamPreset("本机模板", java.util.List.of(
+            new com.formationtool.desktop.model.CustomTeamPreset.Member("米娅", "#B0C4DE"))));
+        var preset = store.load().get(0);
+        var member = preset.members().get(0);
+        var viewModel = new com.formationtool.desktop.viewmodel.FormationViewModel();
+        viewModel.createNewGroup("跨设备工程", 2, 16, 12);
+        viewModel.insertKeyframeSmart(6000, null);
+        viewModel.replaceDancerRoster(java.util.List.of(new Dancer("member-id", member.name(), 0, 0,
+            0xFF000000 | Integer.parseInt(member.color().substring(1), 16))));
+        DataManager manager = new DataManager();
+        var group = viewModel.getCurrentGroup();
+        assertTrue(manager.saveProject(group));
+        // 模拟其他设备只有工程、没有此机器的模板文件。
+        Files.move(presetFile, tempDir.resolve("unavailable-preset.json"));
+        var loaded = manager.loadProject(group.getId());
+        assertNotNull(loaded);
+        assertEquals(2, loaded.getFormations().size());
+        for (Formation formation : loaded.getFormations()) {
+            assertEquals("米娅", formation.getDancers().get(0).getName());
+            assertEquals(0xFFB0C4DE, formation.getDancers().get(0).getColor());
+        }
+        assertTrue(viewModel.undo());
+        assertEquals(2, viewModel.getCurrentGroup().getDancerCount());
     }
 }

@@ -21,6 +21,8 @@ public class DanceGroup {
     private String thumbnailPath;  // 缩略图路径
     private long createdTime;
     private long modifiedTime;
+    private boolean standardMode;  // 标准区间编排模式，旧工程默认保留拍打模式
+    private boolean backstageVisible = true;  // 显示左右台下区域
     private long updateVersion;  // 版本号（与Android端兼容）
 
     public DanceGroup(String id, String name, float stageWidth, float stageDepth) {
@@ -76,6 +78,12 @@ public class DanceGroup {
 
     public long getModifiedTime() { return modifiedTime; }
     public void setModifiedTime(long modifiedTime) { this.modifiedTime = modifiedTime; }
+
+    public boolean isStandardMode() { return standardMode; }
+    public void setStandardMode(boolean standardMode) { this.standardMode = standardMode; }
+    public boolean isBackstageVisible() { return backstageVisible; }
+    public void setBackstageVisible(boolean backstageVisible) { this.backstageVisible = backstageVisible; }
+    public float getBackstageWidth() { return Math.max(2f, stageWidth * 0.2f); }
 
     public long getUpdateVersion() { return updateVersion; }
     public void setUpdateVersion(long updateVersion) { this.updateVersion = updateVersion; }

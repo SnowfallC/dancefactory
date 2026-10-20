@@ -33,6 +33,8 @@ class FormationRenderer : GLSurfaceView.Renderer {
     var currentFormation: Formation? = null
     var nextFormation: Formation? = null
     var transitionProgress: Float = 0f  // 0-1之间的过渡进度
+    var backstageVisible = true
+    private var backstageRenderer: BackstageRenderer? = null
     var stageWidth: Float = 16f
     var stageDepth: Float = 12f
     var is2DMode: Boolean = false
@@ -56,6 +58,7 @@ class FormationRenderer : GLSurfaceView.Renderer {
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
 
         // 初始化形状
+        backstageRenderer = BackstageRenderer()
         circleShape = CircleShape()
         ringShape = RingShape()
         gridLines = GridLines(stageWidth, stageDepth)
@@ -93,6 +96,8 @@ class FormationRenderer : GLSurfaceView.Renderer {
 
         // 绘制网格
         gridLines?.draw(vpMatrix)
+
+        if (backstageVisible) backstageRenderer?.draw(vpMatrix, viewMatrix, stageWidth, stageDepth, numberRenderer)
 
         // 绘制中心线
         if (showCenterLine) {

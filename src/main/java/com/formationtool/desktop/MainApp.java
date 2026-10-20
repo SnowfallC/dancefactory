@@ -41,7 +41,6 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.media.MediaView;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
@@ -79,7 +78,6 @@ public class MainApp extends Application {
     // 媒体文件引用
     private File currentAudioFile;
     private File currentVideoFile;
-    private MediaView videoView;
     private ImageView previewImageView;
 
     // 播放控制
@@ -105,6 +103,11 @@ public class MainApp extends Application {
     private java.util.Timer autoSaveTimer;
     private static final long AUTO_SAVE_INTERVAL = 30000; // 30秒
     private static final long MEDIA_LOAD_TIMEOUT_MS = 80_000L; // 80秒
+
+    @Override
+    public void init() {
+        com.formationtool.desktop.utils.AppLog.install();
+    }
 
     @Override
     public void start(Stage primaryStage) {
@@ -288,7 +291,8 @@ public class MainApp extends Application {
                 alert.setTitle("加载失败");
                 alert.setHeaderText("无法加载工程");
                 alert.setContentText("错误信息: " + e.getMessage() + "\n\n" +
-                    "请查看控制台输出获取详细信息。");
+                    "请点击“打开日志文件夹”获取详细信息。");
+                com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(alert);
                 alert.showAndWait();
             });
         }
@@ -316,6 +320,7 @@ public class MainApp extends Application {
             this::applyNijigasakiPreset,
             this::applyLiellasPreset,
             this::applyHasunosoraPreset,
+            () -> getTeamPresetController().showCustomPresetDialog(),
             () -> showStageSizeDialog(stage),
             () -> checkForUpdates(true),
             () -> showAboutDialog(stage)
@@ -362,7 +367,6 @@ public class MainApp extends Application {
     // 创建视频区域（响应式布局）
     private StackPane createVideoSection() {
         MainLayoutFactory.VideoSectionResult result = MainLayoutFactory.createVideoSection(viewModel, playbackController);
-        videoView = result.getVideoView();
         previewImageView = result.getPreviewImageView();
         return result.getVideoSection();
     }
@@ -767,7 +771,9 @@ public class MainApp extends Application {
     private void showError(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
-        alert.setHeaderText(message);
+        alert.setHeaderText(title);
+        alert.setContentText(message);
+        com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(alert);
         alert.showAndWait();
     }
 
@@ -912,14 +918,11 @@ public class MainApp extends Application {
                 viewModel,
                 dataManager,
                 playbackController,
-                videoView,
                 statusLabel,
                 MEDIA_LOAD_TIMEOUT_MS,
                 this::showError,
                 mediaProcessing::convertAudioToWAV,
                 mediaProcessing::extractAudioFromVideo,
-                mediaProcessing::convertVideoToMP4,
-                mediaProcessing::createOrGetPreviewProxy,
                 mediaProcessing::extractWaveformData,
                 this::updateMediaMenuState,
                 file -> currentAudioFile = file,
@@ -994,7 +997,7 @@ public class MainApp extends Application {
     }
 
     private void startPlayback() {
-        if (playbackController == null || playbackController.getAudioPlayer() == null) {
+        if (playbackController == null || !playbackController.canPlay()) {
             showError("播放失败", "请先导入音频文件");
             return;
         }
@@ -1063,7 +1066,6 @@ public class MainApp extends Application {
             viewModel,
             timelineView,
             dataManager,
-            videoView,
             importAudioMenuItem,
             importVideoMenuItem,
             this::updateFormationList
@@ -1115,7 +1117,7 @@ public class MainApp extends Application {
      * 删除视频
      */
     private void deleteVideo() {
-        String status = MediaCleanupController.deleteVideo(playbackController, viewModel, videoView);
+        String status = MediaCleanupController.deleteVideo(playbackController, viewModel);
         if (status == null) {
             return;
         }
@@ -1283,6 +1285,7 @@ public class MainApp extends Application {
 
         ButtonType downloadButton = new ButtonType("前往官网重新下载");
         alert.getButtonTypes().setAll(downloadButton, ButtonType.CLOSE);
+        com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(alert);
         alert.showAndWait().ifPresent(button -> {
             if (button == downloadButton) {
                 openOfficialDownloadPage();
@@ -1310,6 +1313,7 @@ public class MainApp extends Application {
     }
 
     public static void main(String[] args) {
+        com.formationtool.desktop.utils.AppLog.install();
         launch(args);
     }
 }

@@ -71,6 +71,7 @@ internal fun VideoExporter.exportWithConfigImpl(
             // 初始化渲染器
             val primaryRenderer = if (config.primaryView != ViewType.REFERENCE_VIDEO) {
                 OffscreenRenderer(primaryWidth, primaryHeight, stageWidth, stageDepth, false).also {
+                    it.backstageVisible = backstageVisible
                     it.init()
                     configureViewType(it, config.primaryView, config.viewScale, config.flipped, config.showDancerNames)
                 }
@@ -78,6 +79,7 @@ internal fun VideoExporter.exportWithConfigImpl(
 
             val secondaryRenderer = if (config.layoutMode != LayoutMode.SINGLE && config.secondaryView != ViewType.REFERENCE_VIDEO) {
                 OffscreenRenderer(secondaryWidth, secondaryHeight, stageWidth, stageDepth, false).also {
+                    it.backstageVisible = backstageVisible
                     it.init()
                     configureViewType(it, config.secondaryView, config.viewScale, config.flipped, config.showDancerNames)
                 }

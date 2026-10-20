@@ -6,6 +6,8 @@ import com.formationtool.desktop.viewmodel.FormationViewModel;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SelectionMode;
@@ -112,6 +114,11 @@ public final class ControlPanelFactory {
         formationListView.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.intValue() >= 0) {
                 viewModel.setCurrentFormationIndex(newVal.intValue());
+                if (viewModel.isStandardMode() && !viewModel.isPlaying()
+                        && newVal.intValue() < viewModel.getCurrentGroup().getFormations().size()) {
+                    viewModel.setCurrentTime(viewModel.getCurrentGroup().getFormations().get(newVal.intValue()).getTimestamp());
+                    stageView.render();
+                }
             }
         });
         formationListView.setOnMouseClicked(e -> {
@@ -132,7 +139,19 @@ public final class ControlPanelFactory {
         removeFormationBtn.setOnAction(e -> onDeleteCurrentFormation.run());
         Button batchDeleteFormationBtn = new Button("批量删除");
         batchDeleteFormationBtn.setOnAction(e -> onBatchDeleteFormations.run());
-        formationButtons.getChildren().addAll(removeFormationBtn, batchDeleteFormationBtn);
+        Button addFormationBtn = new Button("+ 队形");
+        addFormationBtn.setTooltip(new Tooltip("在当前播放位置建立队形区间，拖动区间边界调整保持和过渡时长"));
+        addFormationBtn.setOnAction(e -> {
+            if (viewModel.getCurrentGroup() == null || viewModel.isPlaying()) return;
+            Formation formation = viewModel.addFormationInterval();
+            if (formation != null) {
+                viewModel.setCurrentFormationIndex(viewModel.getCurrentGroup().getFormations().indexOf(formation));
+                stageView.render();
+            } else {
+                statusUpdater.accept("当前音乐剩余时长不足，请将播放位置移到前面再添加队形");
+            }
+        });
+        formationButtons.getChildren().addAll(addFormationBtn, removeFormationBtn, batchDeleteFormationBtn);
 
         Label quickActionsLabel = new Label("快速操作");
         quickActionsLabel.setTextFill(Color.WHITE);

@@ -156,7 +156,8 @@ public final class ProjectSessionController {
                 alert.setTitle("加载失败");
                 alert.setHeaderText("无法加载工程");
                 alert.setContentText("错误信息: " + e.getMessage() + "\n\n" +
-                    "请查看控制台输出获取详细信息。");
+                    "请点击“打开日志文件夹”获取详细信息。");
+                com.formationtool.desktop.view.DiagnosticDialogs.attachLogButton(alert);
                 alert.showAndWait();
             });
         }

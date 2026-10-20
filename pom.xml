@@ -6,7 +6,7 @@
 
     <groupId>com.formationtool</groupId>
     <artifactId>formation-tool-desktop</artifactId>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <packaging>jar</packaging>
 
     <name>Formation Tool Desktop</name>
@@ -40,12 +40,16 @@
         <maven.compiler.target>17</maven.compiler.target>
         <javafx.version>21.0.1</javafx.version>
         <gson.version>2.10.1</gson.version>
-        <javacv.version>1.5.10</javacv.version>
-        <ffmpeg.version>6.1.1-1.5.10</ffmpeg.version>
         <jpackage.destination>${project.build.directory}/installer</jpackage.destination>
     </properties>
 
     <dependencies>
+        <!-- 原生播放内核的 Java 接口，避免绑定特定播放器框架。 -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.17.0</version>
+        </dependency>
         <!-- JavaFX -->
         <dependency>
             <groupId>org.openjfx</groupId>
@@ -73,19 +77,6 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
-        </dependency>
-
-        <!-- JavaCV + FFmpeg（拖动预览后台解码） -->
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>javacv</artifactId>
-            <version>${javacv.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg</artifactId>
-            <version>${ffmpeg.version}</version>
-            <classifier>windows-x86_64</classifier>
         </dependency>
 
         <!-- 测试 -->
@@ -175,13 +166,13 @@
                 <version>1.6.5</version>
                 <configuration>
                     <name>舞形工坊</name>
-                    <appVersion>1.1.5</appVersion>
+                    <appVersion>${project.version}</appVersion>
                     <vendor>舞形工坊</vendor>
                     <copyright>Copyright 2024-2026 舞形工坊</copyright>
                     <description>舞形工坊 - 队形编排工具</description>
                     <destination>${jpackage.destination}</destination>
                     <input>${project.build.directory}/jpackage-input</input>
-                    <mainJar>formation-tool-desktop-1.1.5.jar</mainJar>
+                    <mainJar>formation-tool-desktop-${project.version}.jar</mainJar>
                     <mainClass>com.formationtool.desktop.MainApp</mainClass>
                     <icon>${project.basedir}/src/main/resources/app-icon.ico</icon>
                     <javaOptions>
@@ -207,6 +198,17 @@
                 <version>3.3.1</version>
                 <executions>
                     <execution>
+                        <id>copy-native-playback</id>
+                        <phase>package</phase>
+                        <goals><goal>copy-resources</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jpackage-input/native</outputDirectory>
+                            <resources>
+                                <resource><directory>${project.build.directory}/native-runtime</directory></resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>copy-jar</id>
                         <phase>package</phase>
                         <goals>
@@ -218,7 +220,7 @@
                                 <resource>
                                     <directory>${project.build.directory}</directory>
                                     <includes>
-                                        <include>formation-tool-desktop-1.1.5.jar</include>
+                                        <include>formation-tool-desktop-${project.version}.jar</include>
                                     </includes>
                                 </resource>
                             </resources>

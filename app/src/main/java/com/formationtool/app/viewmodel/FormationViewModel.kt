@@ -193,6 +193,8 @@ class FormationViewModel : ViewModel() {
                     }.toMutableList()
                 )
             }.toMutableList(),
+            standardMode = group.standardMode,
+            backstageVisible = group.backstageVisible,
             stageWidth = group.stageWidth,
             stageDepth = group.stageDepth,
             musicPath = group.musicPath,
@@ -210,6 +212,73 @@ class FormationViewModel : ViewModel() {
     /**
      * 创建新舞团（默认 9 人横排）
      */
+    fun timelineDuration(): Long {
+        if (_audioDuration.value > 0) return _audioDuration.value
+        val group = _currentGroup.value ?: return 0L
+        return if (group.standardMode) group.formations.maxOfOrNull { it.timestamp + it.holdDuration } ?: 0L else 0L
+    }
+
+    fun setStandardMode(enabled: Boolean) {
+        val group = _currentGroup.value ?: return
+        if (group.standardMode == enabled) return
+        undoManager.saveSnapshot(group)
+        group.standardMode = enabled
+        emitGroupUpdate(group)
+    }
+
+    fun setBackstageVisible(visible: Boolean) {
+        val group = _currentGroup.value ?: return
+        if (group.backstageVisible == visible) return
+        undoManager.saveSnapshot(group)
+        group.backstageVisible = visible
+        emitGroupUpdate(group)
+    }
+
+    fun addFormationInterval() {
+        viewModelScope.launch {
+            val group = _currentGroup.value ?: return@launch
+            val selected = group.formations.getOrNull(_currentFormationIndex.value) ?: return@launch
+            val time = if (group.formations.any { it.timestamp == _currentTime.value })
+                selected.timestamp + selected.holdDuration + 2000 else _currentTime.value
+            if (_audioDuration.value > 0 && time >= _audioDuration.value) return@launch
+            insertKeyframeSmart(time)?.let { seekTo(it.timestamp) }
+        }
+    }
+
+    fun updateIntervalDancer(id: String, x: Float, y: Float) {
+        val group = _currentGroup.value ?: return
+        val formation = group.formations.getOrNull(_currentFormationIndex.value) ?: return
+        val dancer = formation.dancers.find { it.id == id } ?: return
+        undoManager.saveSnapshot(group)
+        dancer.x = x.coerceIn(-group.stageWidth / 2 - group.backstageWidth(), group.stageWidth / 2 + group.backstageWidth())
+        dancer.y = y.coerceIn(-group.stageDepth / 2, group.stageDepth / 2)
+        emitGroupUpdate(group)
+    }
+
+    fun replaceDancerRoster(roster: List<Pair<String, Int>>) {
+        if (roster.isEmpty()) return
+        viewModelScope.launch {
+            groupMutex.withLock {
+                val group = _currentGroup.value ?: return@withLock
+                undoManager.saveSnapshot(group)
+                val dancers = roster.mapIndexed { index, member ->
+                    Dancer(UUID.randomUUID().toString(), member.first,
+                        (if (index % 2 == 0) -1 else 1) * (group.stageWidth / 2 + group.backstageWidth() / 2),
+                        group.stageDepth / 2 - (index / 2 + 1f) * group.stageDepth / ((roster.size + 1) / 2 + 1f),
+                        0.5f, member.second)
+                }
+                group.formations.forEach { formation ->
+                    formation.dancers.clear()
+                    formation.dancers.addAll(dancers.map { it.copy() })
+                }
+                group.dancerCount = roster.size
+                group.backstageVisible = true
+                _selectedDancers.value = emptySet()
+                emitGroupUpdateLocked(group)
+            }
+        }
+    }
+
     fun createNewGroup(name: String, dancerCount: Int = 9, stageWidth: Float, stageDepth: Float) {
         viewModelScope.launch {
             // 注意：允许 dancerCount = 0，用于创建空工程
@@ -219,6 +288,7 @@ class FormationViewModel : ViewModel() {
                 id = UUID.randomUUID().toString(),
                 name = name,
                 dancerCount = actualCount,
+                standardMode = true,
                 stageWidth = stageWidth,
                 stageDepth = stageDepth
             )
@@ -235,13 +305,12 @@ class FormationViewModel : ViewModel() {
             // 只在 actualCount > 0 时才创建舞者
             if (actualCount > 0) {
                 // 创建舞者并横排（一排）
-                val spacing = stageWidth / (actualCount + 1)  // 均匀分布
                 for (i in 0 until actualCount) {
                     val dancer = Dancer(
                         id = UUID.randomUUID().toString(),
                         name = "舞者${i + 1}",
-                        x = spacing * (i + 1) - stageWidth / 2,  // 横向均匀分布
-                        y = 0f,  // 竖向居中
+                        x = -stageWidth / 2 - group.backstageWidth() / 2,  // 横向均匀分布
+                        y = stageDepth / 2 - (i + 1f) * stageDepth / (actualCount + 1f),
                         z = 0.5f,  // 浮在舞台上方
                         color = getDefaultColor(i)
                     )
@@ -331,7 +400,7 @@ class FormationViewModel : ViewModel() {
 
                 formation.dancers.find { it.id == dancerId }?.apply {
                     // 限制舞者位置在舞台范围内
-                    this.x = x.coerceIn(-halfWidth, halfWidth)
+                    this.x = x.coerceIn(-halfWidth - group.backstageWidth(), halfWidth + group.backstageWidth())
                     this.y = y.coerceIn(-halfDepth, halfDepth)
                     this.z = z
                 }
@@ -659,7 +728,7 @@ class FormationViewModel : ViewModel() {
                     // 吸附到半格（四舍五入到最近0.5的倍数）
                     val snappedX = kotlin.math.round(dancer.x * 2) / 2f
                     val snappedY = kotlin.math.round(dancer.y * 2) / 2f
-                    dancer.x = snappedX.coerceIn(-halfWidth, halfWidth)
+                    dancer.x = snappedX.coerceIn(-halfWidth - group.backstageWidth(), halfWidth + group.backstageWidth())
                     dancer.y = snappedY.coerceIn(-halfDepth, halfDepth)
                 }
 

@@ -21,7 +21,7 @@ class NumberRenderer {
 
     private var program: Int = 0
     private var textureIds: IntArray = IntArray(20)  // 0-19 的数字纹理
-    private var labelTextureIds: IntArray = IntArray(2)  // 0:后台, 1:观众
+    private var labelTextureIds: IntArray = IntArray(3)  // 0:后台，1:观众，2:台下
     private val dancerNameTextures = mutableMapOf<String, Int>()  // 舞者名字纹理缓存
     private val customStyleTextures = mutableMapOf<String, Int>()  // 自定义样式纹理缓存
     private var vertexBuffer: FloatBuffer
@@ -100,8 +100,9 @@ class NumberRenderer {
         }
 
         // 生成标签纹理 (后台、观众)
-        GLES20.glGenTextures(2, labelTextureIds, 0)
+        GLES20.glGenTextures(3, labelTextureIds, 0)
         createLabelTexture(0, "后台", Color.parseColor("#4080FF"))  // 蓝色
+        createLabelTexture(2, "台下", Color.parseColor("#CBD5E1"))
         createLabelTexture(1, "观众", Color.parseColor("#FF6060"))  // 红色
     }
 
@@ -277,7 +278,7 @@ class NumberRenderer {
         z: Float,
         scale: Float = 1.0f
     ) {
-        if (labelIndex < 0 || labelIndex >= 2) return
+        if (labelIndex < 0 || labelIndex >= 3) return
 
         GLES20.glUseProgram(program)
 
@@ -549,7 +550,7 @@ class NumberRenderer {
             GLES20.glDeleteTextures(20, textureIds, 0)
         }
         if (labelTextureIds.isNotEmpty()) {
-            GLES20.glDeleteTextures(2, labelTextureIds, 0)
+            GLES20.glDeleteTextures(3, labelTextureIds, 0)
         }
         // 清理舞者名字纹理
         dancerNameTextures.values.forEach { textureId ->

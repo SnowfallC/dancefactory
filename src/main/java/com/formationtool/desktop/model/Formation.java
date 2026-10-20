@@ -60,6 +60,11 @@ public class Formation {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
+    /** 点选时定位到最近区间边缘，区间内保持原位置。 */
+    public long selectionTime(long currentTime) {
+        return Math.max(timestamp, Math.min(currentTime, timestamp + holdDuration));
+    }
+
     // 创建深拷贝
     public Formation copy() {
         Formation copy = new Formation(this.id, this.name, this.timestamp);

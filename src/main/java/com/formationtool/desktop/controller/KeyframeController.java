@@ -110,7 +110,7 @@ public class KeyframeController {
      * - 再次按F：保存红色区长度，创建新关键帧，开始绿色区
      */
     public void handleFKeyPressed() {
-        if (isFKeyPressed) return;
+        if (isFKeyPressed || viewModel.isStandardMode()) return;
 
         DanceGroup group = viewModel.getCurrentGroup();
         if (group == null || group.getFormations().isEmpty()) return;

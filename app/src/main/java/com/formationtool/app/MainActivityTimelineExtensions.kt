@@ -1,5 +1,6 @@
 package com.formationtool.app
 
+import com.formationtool.app.model.selectionTime
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.widget.Button
@@ -18,10 +19,29 @@ import kotlin.math.abs
 
 internal fun MainActivity.setupTimeline() {
         waveformView = findViewById(R.id.waveformView)
+        setupEditingModeControls()
         timelineContent = findViewById(R.id.timelineContent)
         val timelineScrollView = findViewById<HorizontalScrollView>(R.id.timelineScrollView)
         val btnAudioPlayPause: Button = findViewById(R.id.btnAudioPlayPause)
         val exportRangeView = findViewById<com.formationtool.app.view.ExportRangeView>(R.id.exportRangeView)
+
+        waveformView.onTransitionTapped = { index ->
+            audioManager.pause()
+            viewModel.currentGroup.value?.formations?.getOrNull(index)?.let {
+                showAdjustTransitionDurationDialog(index, it)
+            }
+        }
+        waveformView.onFormationSelected = { index ->
+            audioManager.pause()
+            viewModel.currentGroup.value?.formations?.getOrNull(index)?.let { formation ->
+                val targetTime = formation.selectionTime(viewModel.currentTime.value)
+                viewModel.seekTo(targetTime)
+                viewModel.switchToFormation(index)
+                audioManager.seekTo(targetTime)
+                syncReferenceVideoPosition(targetTime)
+                scrollToTime(targetTime)
+            }
+        }
 
         // 设置导出范围选择条回调
         exportRangeView.onRangeChanged = { inMs, outMs ->
@@ -45,17 +65,8 @@ internal fun MainActivity.setupTimeline() {
         }
 
         // 设置长按区域回调（长按绿色/红色区调整时长）
-        waveformView.onRegionLongPress = { formationIndex, isHoldRegion ->
-            viewModel.currentGroup.value?.let { group ->
-                if (formationIndex in group.formations.indices) {
-                    val formation = group.formations[formationIndex]
-                    if (isHoldRegion) {
-                        showAdjustHoldDurationDialog(formationIndex, formation)
-                    } else {
-                        showAdjustTransitionDurationDialog(formationIndex, formation)
-                    }
-                }
-            }
+        waveformView.onRegionLongPress = { index, _ ->
+            showFormationActions(index)
         }
 
         // 点击导入音频（只在没有音频时有效）
@@ -65,6 +76,7 @@ internal fun MainActivity.setupTimeline() {
 
         // 设置边界拖动开始回调（保存撤销快照）
         waveformView.onBoundaryDragStart = {
+            audioManager.pause()
             viewModel.saveUndoSnapshot()
         }
 
@@ -105,21 +117,27 @@ internal fun MainActivity.setupTimeline() {
 
         var lastScrollX = 0f
         var isDragging = false
+        var hasTimelineMoved = false
+        var timelineTouchDownX = 0f
         var lastVideoSeekTime = 0L  // 用于节流视频seek
-        timelineScrollView.setOnTouchListener { _, event ->
+        val timelineTouchHandler = android.view.View.OnTouchListener { _, event ->
+            timelineScaleDetector.onTouchEvent(event)
             when (event.pointerCount) {
                 1 -> {
                     // 单指滚动
                     when (event.actionMasked) {
                         MotionEvent.ACTION_DOWN -> {
+                            hasTimelineMoved = false
+                            timelineTouchDownX = event.rawX
                             lastScrollX = event.rawX  // 使用屏幕绝对坐标
                             isDragging = true
                             isScrollingProgrammatically = false  // 用户手动滚动
                             true
                         }
                         MotionEvent.ACTION_MOVE -> {
-                            if (isDragging) {
+                            if (isDragging && (hasTimelineMoved || abs(event.rawX - timelineTouchDownX) > 8 * resources.displayMetrics.density)) {
                                 val deltaX = lastScrollX - event.rawX
+                                if (abs(event.rawX - timelineTouchDownX) > 8 * resources.displayMetrics.density) hasTimelineMoved = true
 
                                 // 开始滚动时取消WaveformView的长按检测
                                 if (kotlin.math.abs(deltaX) > 5) {
@@ -142,7 +160,7 @@ internal fun MainActivity.setupTimeline() {
                             // 取消WaveformView的长按检测
                             waveformView.cancelPendingLongPress()
 
-                            if (isDragging) {
+                            if (isDragging && hasTimelineMoved) {
                                 // 拖动结束时最终更新播放位置
                                 updateTimeFromScroll()
                             }
@@ -157,12 +175,14 @@ internal fun MainActivity.setupTimeline() {
                     // 双指缩放
                     isDragging = false  // 缩放时取消拖动
                     waveformView.cancelPendingLongPress()  // 取消长按
-                    timelineScaleDetector.onTouchEvent(event)
                     true
                 }
                 else -> false
             }
         }
+
+        timelineScrollView.setOnTouchListener(timelineTouchHandler)
+        waveformView.onTimelineTouch = { event -> timelineTouchHandler.onTouch(timelineScrollView, event) }
 
         // 音频播放/暂停
         btnAudioPlayPause.setOnClickListener {
@@ -200,7 +220,7 @@ internal fun MainActivity.setupTimeline() {
         val fabFKey = findViewById<Button>(R.id.fabFKey)
         fabFKey.setOnTouchListener { v, event ->
             // 只有启用时才响应
-            if (!fabFKey.isEnabled) return@setOnTouchListener false
+            if (!fabFKey.isEnabled || viewModel.currentGroup.value?.standardMode == true) return@setOnTouchListener false
 
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
@@ -264,7 +284,7 @@ internal fun MainActivity.setupTimeline() {
     }
 
 internal fun MainActivity.updateTimelineZoom() {
-        val duration = viewModel.audioDuration.value
+        val duration = viewModel.timelineDuration()
         val timelineScrollView = findViewById<HorizontalScrollView>(R.id.timelineScrollView)
         val exportRangeView = findViewById<com.formationtool.app.view.ExportRangeView>(R.id.exportRangeView)
 
@@ -318,7 +338,7 @@ internal fun MainActivity.updateTimelineZoom() {
 
 internal fun MainActivity.updateTimeFromScroll() {
         val timelineScrollView = findViewById<HorizontalScrollView>(R.id.timelineScrollView)
-        val duration = viewModel.audioDuration.value
+        val duration = viewModel.timelineDuration()
 
         if (duration > 0) {
             val sidebarWidth = getSidebarWidth()
@@ -340,7 +360,7 @@ internal fun MainActivity.updateTimeFromScroll() {
 
 internal fun MainActivity.updateTimeFromScrollRealtime() {
         val timelineScrollView = findViewById<HorizontalScrollView>(R.id.timelineScrollView)
-        val duration = viewModel.audioDuration.value
+        val duration = viewModel.timelineDuration()
 
         if (duration > 0) {
             val sidebarWidth = getSidebarWidth()
@@ -368,7 +388,7 @@ internal fun MainActivity.syncReferenceVideoPosition(timeMs: Long) {
 
 internal fun MainActivity.scrollToTime(time: Long) {
         val timelineScrollView = findViewById<HorizontalScrollView>(R.id.timelineScrollView)
-        val duration = viewModel.audioDuration.value
+        val duration = viewModel.timelineDuration()
 
         if (duration > 0) {
             val sidebarWidth = getSidebarWidth()
