@@ -49,7 +49,7 @@ class TimelineViewIntegrationTest {
                 canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 30000 * scale, MouseButton.PRIMARY));
                 canvas.getOnMouseReleased().handle(mouse(MouseEvent.MOUSE_RELEASED, 30000 * scale, MouseButton.PRIMARY));
                 assertEquals(1, model.getCurrentFormationIndex());
-                assertEquals(24000, model.getCurrentTime());
+                assertEquals(30000, model.getCurrentTime());
                 canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 38000 * scale, MouseButton.PRIMARY));
                 canvas.getOnMouseDragged().handle(mouse(MouseEvent.MOUSE_DRAGGED, 36000 * scale, MouseButton.PRIMARY));
                 canvas.getOnMouseReleased().handle(mouse(MouseEvent.MOUSE_RELEASED, 36000 * scale, MouseButton.PRIMARY));
@@ -57,17 +57,27 @@ class TimelineViewIntegrationTest {
                 model.setCurrentTime(50000);
                 canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 30000 * scale, MouseButton.PRIMARY));
                 canvas.getOnMouseReleased().handle(mouse(MouseEvent.MOUSE_RELEASED, 30000 * scale, MouseButton.PRIMARY));
-                assertEquals(36000, model.getCurrentTime(), 1);
+                assertEquals(30000, model.getCurrentTime(), 1);
                 model.setCurrentTime(30000);
                 canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 32000 * scale, MouseButton.PRIMARY));
                 canvas.getOnMouseReleased().handle(mouse(MouseEvent.MOUSE_RELEASED, 32000 * scale, MouseButton.PRIMARY));
-                assertEquals(30000, model.getCurrentTime());
+                assertEquals(32000, model.getCurrentTime());
                 float[] wave = new float[900];
                 for (int i = 0; i < wave.length; i++) wave[i] = (float) (Math.sin(i * .3) * .6);
                 view.setWaveformData(wave);
                 ImageIO.write(SwingFXUtils.fromFXImage(canvas.snapshot(null, null), null), "png", new File("target/desktop-timeline-preview.png"));
                 for (boolean standard : new boolean[]{true, false}) {
                     model.setStandardMode(standard);
+                    model.setCurrentTime(0);
+                    canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 20000 * scale, MouseButton.PRIMARY));
+                    canvas.getOnMouseReleased().handle(mouse(MouseEvent.MOUSE_RELEASED, 20000 * scale, MouseButton.PRIMARY));
+                    assertEquals(20000, model.getCurrentTime());
+                    canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 20000 * scale, MouseButton.SECONDARY));
+                    var transitionMenu = javafx.stage.Window.getWindows().stream()
+                        .filter(w -> w instanceof javafx.scene.control.ContextMenu && w.isShowing())
+                        .map(w -> (javafx.scene.control.ContextMenu) w).findFirst().orElseThrow();
+                    assertTrue(transitionMenu.getItems().stream().anyMatch(i -> i.getText().equals("调整过渡时长")));
+                    transitionMenu.hide();
                     canvas.getOnMousePressed().handle(mouse(MouseEvent.MOUSE_PRESSED, 30000 * scale, MouseButton.SECONDARY));
                     var popup = javafx.stage.Window.getWindows().stream()
                         .filter(w -> w instanceof javafx.scene.control.ContextMenu && w.isShowing())

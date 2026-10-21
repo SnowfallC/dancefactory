@@ -52,6 +52,45 @@ public final class CustomTeamPresetStore {
         List<CustomTeamPreset> presets = load();
         presets.removeIf(item -> item.name().equals(preset.name()) || item.name().equals(previousName));
         presets.add(preset);
+        write(presets);
+    }
+
+    public List<CustomTeamPreset> readImport(Path source) throws IOException {
+        try (var input = Files.newInputStream(source)) {
+            byte[] bytes = input.readNBytes((int) maxFileBytes + 1);
+            if (bytes.length > maxFileBytes) throw new IOException("预设文件过大");
+            String json = new String(bytes, StandardCharsets.UTF_8);
+            if (json.startsWith("\uFEFF")) json = json.substring(1);
+            Library library = gson.fromJson(json, Library.class);
+            if (library == null || library.version() != 1 || library.presets() == null || library.presets().isEmpty()) {
+                throw new IllegalArgumentException("预设文件结构无效或没有预设");
+            }
+            validateImport(library.presets());
+            return List.copyOf(library.presets());
+        } catch (JsonParseException | IllegalArgumentException e) {
+            throw new IOException("无法导入预设：" + e.getMessage(), e);
+        }
+    }
+
+    public void importPresets(List<CustomTeamPreset> imported) throws IOException {
+        validateImport(imported);
+        List<CustomTeamPreset> presets = load();
+        var names = imported.stream().map(CustomTeamPreset::name).collect(java.util.stream.Collectors.toSet());
+        presets.removeIf(preset -> names.contains(preset.name()));
+        presets.addAll(imported);
+        write(presets);
+    }
+
+    private static void validateImport(List<CustomTeamPreset> presets) {
+        if (presets == null || presets.isEmpty() || presets.size() > 100) throw new IllegalArgumentException("文件需要包含 1—100 个预设");
+        var names = new java.util.HashSet<String>();
+        for (CustomTeamPreset preset : presets) {
+            validate(preset);
+            if (!names.add(preset.name())) throw new IllegalArgumentException("文件中存在重复预设名称");
+        }
+    }
+
+    private void write(List<CustomTeamPreset> presets) throws IOException {
         if (presets.size() > 100) throw new IOException("最多保存 100 个本机预设");
         String json = gson.toJson(new Library(1, presets));
         if (json.getBytes(StandardCharsets.UTF_8).length > maxFileBytes) throw new IOException("预设文件过大");

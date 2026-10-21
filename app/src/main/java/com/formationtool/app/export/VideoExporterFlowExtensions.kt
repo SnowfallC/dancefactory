@@ -54,6 +54,7 @@ internal fun VideoExporter.exportWithConfigImpl(
                 return false
             }
 
+            referenceVideoMirrored = config.referenceVideoMirrored
             callback?.onProgress(0.05f, "初始化渲染环境...")
             if (!initEGL()) {
                 callback?.onError("初始化 EGL 失败")
@@ -72,6 +73,8 @@ internal fun VideoExporter.exportWithConfigImpl(
             val primaryRenderer = if (config.primaryView != ViewType.REFERENCE_VIDEO) {
                 OffscreenRenderer(primaryWidth, primaryHeight, stageWidth, stageDepth, false).also {
                     it.backstageVisible = backstageVisible
+                    it.mirrored = config.mirrored
+                    it.dancerScale = config.dancerScale.coerceIn(0.5f, 2f)
                     it.init()
                     configureViewType(it, config.primaryView, config.viewScale, config.flipped, config.showDancerNames)
                 }
@@ -80,6 +83,8 @@ internal fun VideoExporter.exportWithConfigImpl(
             val secondaryRenderer = if (config.layoutMode != LayoutMode.SINGLE && config.secondaryView != ViewType.REFERENCE_VIDEO) {
                 OffscreenRenderer(secondaryWidth, secondaryHeight, stageWidth, stageDepth, false).also {
                     it.backstageVisible = backstageVisible
+                    it.mirrored = config.mirrored
+                    it.dancerScale = config.dancerScale.coerceIn(0.5f, 2f)
                     it.init()
                     configureViewType(it, config.secondaryView, config.viewScale, config.flipped, config.showDancerNames)
                 }

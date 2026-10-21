@@ -208,13 +208,26 @@ class MainActivity : AppCompatActivity() {
         AndroidColor.parseColor("#888888")  // 深灰
     )
 
+    // 使用系统文件选择器导出预设，不申请额外存储权限。
+    internal val presetExportLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) writeCustomTeamPresetExport(uri)
+    }
+
+    internal val presetImportLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) importCustomTeamPresets(uri)
+    }
+
     // 音频文件选择器
     internal val audioPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                handleAudioFile(uri)
+                handleAudioFile(uri, true)
             }
         }
     }
@@ -225,7 +238,7 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                handleVideoFile(uri)
+                handleVideoFile(uri, true)
             }
         }
     }

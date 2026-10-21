@@ -7,6 +7,7 @@ import java.util.List;
  * 舞团数据模型
  */
 public class DanceGroup {
+    private boolean referenceVideoMirrored;
     private String id;
     private String name;
     private int dancerCount;
@@ -78,6 +79,9 @@ public class DanceGroup {
 
     public long getModifiedTime() { return modifiedTime; }
     public void setModifiedTime(long modifiedTime) { this.modifiedTime = modifiedTime; }
+
+    public boolean isReferenceVideoMirrored() { return referenceVideoMirrored; }
+    public void setReferenceVideoMirrored(boolean value) { referenceVideoMirrored = value; }
 
     public boolean isStandardMode() { return standardMode; }
     public void setStandardMode(boolean standardMode) { this.standardMode = standardMode; }

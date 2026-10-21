@@ -84,6 +84,9 @@ test('拒绝发布低版本或回退 versionCode', async () => {
   await assert.rejects(publishRelease({ ...plan, payload: { ...newPayload, versionCode: 4 } }, store), /禁止回退/);
   assert.equal(store.calls.length, 0);
   assert.equal(compareVersions('1.1.10', '1.1.6'), 1);
+  assert.equal(compareVersions('1.1.6.1', '1.1.6'), 1);
+  assert.equal(compareVersions('1.1.6', '1.1.6.0'), 0);
+  assert.equal(compareVersions('1.1.6.2', '1.1.6.10'), -1);
 });
 
 test('同版本修正必须显式开启并使用新的文件地址', async () => {

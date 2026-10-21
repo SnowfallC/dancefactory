@@ -8,6 +8,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExportFilterBuilderTest {
 
     @Test
+    void shouldMirrorOnlyReferenceVideoAndPreserveAspectRatio() {
+        ExportConfig config = new ExportConfig();
+        config.setPrimaryView(ExportConfig.ViewType.VIEW_2D);
+        config.setSecondaryView(ExportConfig.ViewType.REFERENCE_VIDEO);
+        config.setReferenceVideoMirrored(true);
+        String filter = ExportFilterBuilder.buildHorizontalSplitFilter(config, 1920, 1080);
+        assertTrue(filter.contains("[1:v]hflip,scale=960:1080:force_original_aspect_ratio=decrease"));
+        assertTrue(filter.contains("[0:v]scale=960:1080[left]"));
+    }
+
+    @Test
     void shouldBuildHorizontalSplitFilterWithReferenceVideoOnRight() {
         ExportConfig config = new ExportConfig();
         config.setLayoutMode(ExportConfig.LayoutMode.SPLIT_HORIZONTAL);

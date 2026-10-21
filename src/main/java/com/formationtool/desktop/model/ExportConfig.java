@@ -73,6 +73,19 @@ public class ExportConfig {
     private double viewScale = 1.0;  // 视角缩放比例 (0.5 ~ 2.0)
     private StageOrientation stageOrientation = StageOrientation.NORMAL;  // 舞台方向
 
+    private boolean mirrored;
+    private boolean referenceVideoMirrored;
+    private double dancerScale = 1.0;
+    public boolean isMirrored() { return mirrored; }
+    public void setMirrored(boolean value) { mirrored = value; }
+    public boolean isReferenceVideoMirrored() { return referenceVideoMirrored; }
+    public void setReferenceVideoMirrored(boolean value) { referenceVideoMirrored = value; }
+    public double getDancerScale() { return dancerScale; }
+    public void setDancerScale(double value) {
+        if (!Double.isFinite(value)) throw new IllegalArgumentException("角色大小无效");
+        dancerScale = Math.max(0.5, Math.min(2.0, value));
+    }
+
     // 分辨率配置
     private int outputWidth = 1920;
     private int outputHeight = 1080;

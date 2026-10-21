@@ -80,8 +80,8 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--version", required=True)
     arguments = parser.parse_args()
-    if not re.fullmatch(r"\d+\.\d+\.\d+", arguments.version):
-        parser.error("版本号必须为三段数字")
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:\.\d+)?", arguments.version):
+        parser.error("版本号必须为三段或四段数字")
     count = packageWindows(Path(arguments.source).resolve(), Path(arguments.output).resolve(), arguments.version, Path(__file__).resolve().parent.parent)
     print(f"发行包已生成，包含 {count} 个运行与许可文件：{arguments.output}")
 

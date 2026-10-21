@@ -43,7 +43,9 @@ class NumberRenderer {
         uniform sampler2D uTexture;
         varying vec2 vTexCoord;
         void main() {
-            gl_FragColor = texture2D(uTexture, vTexCoord);
+            vec4 color = texture2D(uTexture, vTexCoord);
+            if (color.a < 0.01) discard;
+            gl_FragColor = color;
         }
     """.trimIndent()
 
@@ -208,9 +210,16 @@ class NumberRenderer {
         z: Float,
         scale: Float = 0.4f
     ) {
-        if (number < 0 || number >= 20) return
+        if (number < 0) return
+        val textureId = if (number < textureIds.size) textureIds[number] else {
+            dancerNameTextures.getOrPut(number.toString()) { createDancerNameTexture(number.toString()) }
+        }
 
         GLES20.glUseProgram(program)
+        val blendingWasEnabled = GLES20.glIsEnabled(GLES20.GL_BLEND)
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        GLES20.glDepthMask(false)
 
         // 创建广告牌矩阵（始终面向相机）
         val modelMatrix = FloatArray(16)
@@ -253,11 +262,14 @@ class NumberRenderer {
         // 绑定纹理
         val textureHandle = GLES20.glGetUniformLocation(program, "uTexture")
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureIds[number])
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
         GLES20.glUniform1i(textureHandle, 0)
 
         // 绘制
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4)
+        GLES20.glDepthMask(true)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        if (!blendingWasEnabled) GLES20.glDisable(GLES20.GL_BLEND)
 
         // 清理
         GLES20.glDisableVertexAttribArray(positionHandle)
@@ -281,6 +293,10 @@ class NumberRenderer {
         if (labelIndex < 0 || labelIndex >= 3) return
 
         GLES20.glUseProgram(program)
+        val blendingWasEnabled = GLES20.glIsEnabled(GLES20.GL_BLEND)
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        GLES20.glDepthMask(false)
 
         // 创建广告牌矩阵（始终面向相机）
         val modelMatrix = FloatArray(16)
@@ -327,6 +343,9 @@ class NumberRenderer {
 
         // 绘制
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4)
+        GLES20.glDepthMask(true)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        if (!blendingWasEnabled) GLES20.glDisable(GLES20.GL_BLEND)
 
         // 清理
         GLES20.glDisableVertexAttribArray(positionHandle)
@@ -354,6 +373,10 @@ class NumberRenderer {
         }
 
         GLES20.glUseProgram(program)
+        val blendingWasEnabled = GLES20.glIsEnabled(GLES20.GL_BLEND)
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        GLES20.glDepthMask(false)
 
         // 创建广告牌矩阵（始终面向相机）
         val modelMatrix = FloatArray(16)
@@ -400,6 +423,9 @@ class NumberRenderer {
 
         // 绘制
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4)
+        GLES20.glDepthMask(true)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        if (!blendingWasEnabled) GLES20.glDisable(GLES20.GL_BLEND)
 
         // 清理
         GLES20.glDisableVertexAttribArray(positionHandle)
@@ -420,6 +446,10 @@ class NumberRenderer {
         } ?: return
 
         GLES20.glUseProgram(program)
+        val blendingWasEnabled = GLES20.glIsEnabled(GLES20.GL_BLEND)
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        GLES20.glDepthMask(false)
 
         val modelMatrix = FloatArray(16)
         Matrix.setIdentityM(modelMatrix, 0)
@@ -457,6 +487,9 @@ class NumberRenderer {
         GLES20.glUniform1i(textureHandle, 0)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4)
+        GLES20.glDepthMask(true)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        if (!blendingWasEnabled) GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glDisableVertexAttribArray(positionHandle)
         GLES20.glDisableVertexAttribArray(texCoordHandle)
     }

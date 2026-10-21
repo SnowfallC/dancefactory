@@ -4,6 +4,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import com.formationtool.app.model.backstageWidth
+import com.formationtool.app.utils.DragCoordinates
 import com.formationtool.app.viewmodel.createKeyframe
 import com.formationtool.app.viewmodel.insertKeyframeWithPositions
 
@@ -45,11 +46,11 @@ internal fun MainActivity.setupGestures() {
                             pitch = (camera.pitch + distanceY * 0.1f).coerceIn(-89f, 89f)
                         )
                     } else {
-                        // 2D模式：平移视口
-                        // distanceX > 0 表示向左拖动，视口应该向左移动
-                        // distanceY > 0 表示向上拖动，视口应该向上移动
-                        val worldDelta = screenToWorldDelta(distanceX, distanceY)
+                        // 相机偏移独立于舞台翻转，确保画面跟随手指平移。
                         val camera = viewModel.cameraView.value
+                        val worldDelta = DragCoordinates.cameraPanDelta(
+                            distanceX, distanceY, camera, glSurfaceView.width.toFloat(), glSurfaceView.height.toFloat()
+                        )
                         viewModel.updateCamera(
                             targetX = camera.targetX + worldDelta.first,
                             targetY = camera.targetY + worldDelta.second
@@ -536,59 +537,8 @@ internal fun MainActivity.isCurrentTimeInTransition(): Boolean {
         return false
     }
 
-internal fun MainActivity.screenToWorldDelta(deltaX: Float, deltaY: Float): Pair<Float, Float> {
-        val camera = viewModel.cameraView.value
-        val viewWidth = glSurfaceView.width.toFloat()
-        val viewHeight = glSurfaceView.height.toFloat()
-
-        if (viewWidth <= 0 || viewHeight <= 0) return Pair(0f, 0f)
-
-        // 根据 FOV 和相机距离计算可见范围
-        val fovRad = Math.toRadians(camera.fov.toDouble() / 2.0)
-        val visibleHeight = 2f * camera.z * kotlin.math.tan(fovRad).toFloat()
-        val visibleWidth = visibleHeight * (viewWidth / viewHeight)
-
-        // 屏幕像素到世界坐标的比例
-        val worldPerPixelX = visibleWidth / viewWidth
-        val worldPerPixelY = visibleHeight / viewHeight
-
-        // 屏幕移动转世界移动
-        // 与渲染坐标保持一致：翻转后仅反转舞台Y轴映射方向
-        val rawWorldX = deltaX * worldPerPixelX
-        val rawWorldY = if (renderer.flipped) {
-            -deltaY * worldPerPixelY
-        } else {
-            deltaY * worldPerPixelY
-        }
-
-        // 判断是否为2D模式（接近垂直俯视）
-        if (kotlin.math.abs(camera.pitch) > 85f) {
-            // 2D模式：简化坐标转换，不考虑 pitch 的影响
-            // 只根据 yaw 旋转坐标系
-            val yawRad = Math.toRadians(camera.yaw.toDouble())
-            val cosYaw = kotlin.math.cos(yawRad).toFloat()
-            val sinYaw = kotlin.math.sin(yawRad).toFloat()
-
-            val worldX = rawWorldX * cosYaw + rawWorldY * sinYaw
-            val worldY = -rawWorldX * sinYaw + rawWorldY * cosYaw
-
-            return Pair(worldX, worldY)
-        } else {
-            // 3D模式：考虑 pitch 和 yaw 的影响
-            val pitchRad = Math.toRadians(-camera.pitch.toDouble())
-            val yawRad = Math.toRadians(camera.yaw.toDouble())
-            val cosPitch = kotlin.math.cos(pitchRad).toFloat()
-            val sinPitch = kotlin.math.sin(pitchRad).toFloat()
-            val cosYaw = kotlin.math.cos(yawRad).toFloat()
-            val sinYaw = kotlin.math.sin(yawRad).toFloat()
-
-            // 根据 pitch 调整 Y 方向的强度（俯角越大，Y 移动越弱）
-            val adjustedWorldY = rawWorldY * cosPitch
-
-            // 再根据 yaw 旋转坐标系
-            val worldX = rawWorldX * cosYaw + adjustedWorldY * sinYaw
-            val worldY = -rawWorldX * sinYaw + adjustedWorldY * cosYaw
-
-            return Pair(worldX, worldY)
-        }
-    }
+internal fun MainActivity.screenToWorldDelta(deltaX: Float, deltaY: Float): Pair<Float, Float> =
+    DragCoordinates.stageDelta(
+        deltaX, deltaY, viewModel.cameraView.value,
+        glSurfaceView.width.toFloat(), glSurfaceView.height.toFloat(), renderer.flipped
+    )

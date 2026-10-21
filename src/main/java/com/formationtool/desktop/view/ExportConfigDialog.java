@@ -47,6 +47,7 @@ public class ExportConfigDialog {
         this.config = new ExportConfig();
         this.config.setHasReferenceVideo(hasReferenceVideo);
         this.viewModel = viewModel;
+        this.config.setReferenceVideoMirrored(viewModel.getCurrentGroup() != null && viewModel.getCurrentGroup().isReferenceVideoMirrored());
         this.stageView = stageView;
         this.initialStageFlipped = stageView.isFlipped();
         this.config.setStageOrientation(initialStageFlipped ? StageOrientation.FLIPPED : StageOrientation.NORMAL);
@@ -145,7 +146,11 @@ public class ExportConfigDialog {
         // 6. 按钮栏
         HBox buttonBox = createButtonBar();
 
-        box.getChildren().addAll(layoutCard, primaryViewCard, secondaryViewBox, orientationCard, scaleCard, buttonBox);
+        Slider dancerSize = new Slider(0.5, 2.0, 1.0);
+        dancerSize.setShowTickLabels(true);
+        dancerSize.valueProperty().addListener((obs, previous, value) -> { config.setDancerScale(value.doubleValue()); updatePreview(); });
+        VBox dancerCard = createCard("角色大小（0.5–2 倍）", dancerSize);
+        box.getChildren().addAll(layoutCard, primaryViewCard, secondaryViewBox, orientationCard, scaleCard, dancerCard, buttonBox);
         return box;
     }
 
@@ -303,7 +308,10 @@ public class ExportConfigDialog {
             }
         });
 
-        HBox box = new HBox(8, btnKeepCurrent, btnRotate180);
+        CheckBox mirror = new CheckBox("左右镜像");
+        mirror.setTextFill(Color.WHITE);
+        mirror.setOnAction(event -> { config.setMirrored(mirror.isSelected()); updatePreview(); });
+        HBox box = new HBox(8, btnKeepCurrent, btnRotate180, mirror);
         box.setAlignment(Pos.CENTER_LEFT);
         return box;
     }
@@ -520,12 +528,16 @@ public class ExportConfigDialog {
                 // 保存当前缩放状态
                 double originalScale = stageView.getViewScale();
                 boolean originalFlipped = stageView.isFlipped();
+                boolean originalMirrored = stageView.isMirrored();
+                double originalDancerScale = stageView.getDancerScale();
                 WritableImage snapshot;
 
                 try {
                     // 应用配置中的缩放与翻转
                     stageView.setViewScale(config.getViewScale());
                     stageView.setFlipped(config.isFlipped());
+                    stageView.setMirrored(config.isMirrored());
+                    stageView.setDancerScale(config.getDancerScale());
 
                     // 截取舞台图像
                     SnapshotParameters params = new SnapshotParameters();
@@ -535,6 +547,8 @@ public class ExportConfigDialog {
                     // 恢复原始状态，避免影响主界面视口
                     stageView.setViewScale(originalScale);
                     stageView.setFlipped(originalFlipped);
+                    stageView.setMirrored(originalMirrored);
+                    stageView.setDancerScale(originalDancerScale);
                 }
 
                 if (snapshot != null) {

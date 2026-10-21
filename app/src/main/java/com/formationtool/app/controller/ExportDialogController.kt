@@ -196,16 +196,31 @@ object ExportDialogController {
             }
         }
         flipRow.addView(TextView(context).apply {
-            text = "旋转180°导出"
+            text = "相对当前舞台旋转180°"
             textSize = 12f
             setTextColor(Color.parseColor("#AAAAAA"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         val flipSwitch = SwitchCompat(context).apply {
-            isChecked = initialFlipped
+            isChecked = false
         }
         flipRow.addView(flipSwitch)
         settingsSection.addView(flipRow)
+
+        val mirrorSwitch = SwitchCompat(context).apply {
+            text = "舞台左右镜像"
+            setTextColor(Color.WHITE)
+        }
+        settingsSection.addView(mirrorSwitch)
+        val dancerSizeLabel = TextView(context).apply { text = "角色大小：1.0 倍"; setTextColor(Color.WHITE) }
+        settingsSection.addView(dancerSizeLabel)
+        val dancerSize = SeekBar(context).apply { max = 150; progress = 50 }
+        settingsSection.addView(dancerSize)
+        dancerSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: SeekBar?, value: Int, user: Boolean) { dancerSizeLabel.text = "角色大小：${0.5f + value / 100f} 倍" }
+            override fun onStartTrackingTouch(bar: SeekBar?) { }
+            override fun onStopTrackingTouch(bar: SeekBar?) { }
+        })
 
         fun updateUI() {
             val isSingle = layoutSpinner.selectedItemPosition == 0
@@ -226,7 +241,7 @@ object ExportDialogController {
                 primaryView = primaryView,
                 secondaryView = secondaryView,
                 scale = scale,
-                flipped = flipSwitch.isChecked
+                flipped = initialFlipped.xor(flipSwitch.isChecked)
             )
             previewView.requestLayout()
         }
@@ -284,7 +299,9 @@ object ExportDialogController {
                         primaryView = primaryView,
                         secondaryView = secondaryView,
                         viewScale = viewScale,
-                        flipped = flipSwitch.isChecked,
+                        mirrored = mirrorSwitch.isChecked,
+                        dancerScale = 0.5f + dancerSize.progress / 100f,
+                        flipped = initialFlipped.xor(flipSwitch.isChecked),
                         showDancerNames = showDancerNames
                     )
                 )

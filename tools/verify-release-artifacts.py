@@ -78,8 +78,8 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--windows-file")
     arguments = parser.parse_args()
-    if not re.fullmatch(r"\d+\.\d+\.\d+", arguments.version):
-        parser.error("版本号必须为三段数字")
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:\.\d+)?", arguments.version):
+        parser.error("版本号必须为三段或四段数字")
     if arguments.windows_file and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.zip", arguments.windows_file):
         parser.error("Windows 文件名无效")
     result = verifyArtifacts(Path(arguments.release_dir).resolve(), arguments.version, arguments.windows_file)

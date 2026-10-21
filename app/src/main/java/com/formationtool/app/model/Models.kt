@@ -79,6 +79,9 @@ data class DanceGroup(
     var audioUri: String? = null,  // 音频URI（原始Content URI，重启后可能失效）
     var referenceVideoPath: String? = null,  // 参考视频内部存储路径（持久化）
     var audioPath: String? = null,  // 音频内部存储路径（持久化）
+    var audioSourceUri: String? = null,
+    var videoSourceUri: String? = null,
+    var referenceVideoMirrored: Boolean = false,
     var thumbnailPath: String? = null,  // 缩略图路径
     var createdTime: Long = System.currentTimeMillis(),
     var modifiedTime: Long = System.currentTimeMillis(),

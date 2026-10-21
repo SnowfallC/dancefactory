@@ -354,7 +354,23 @@ public final class MainLayoutFactory {
                 previewImageView.visibleProperty(), previewImageView.imageProperty()));
         noVideoLabel.managedProperty().bind(noVideoLabel.visibleProperty());
 
-        videoSection.getChildren().addAll(videoContainer, title);
+        Button mirror = new Button("左右镜像");
+        mirror.setTooltip(new Tooltip("仅镜像参考视频，随工程保存"));
+        StackPane.setAlignment(mirror, Pos.TOP_RIGHT);
+        Runnable refreshMirror = () -> {
+            boolean enabled = viewModel.getCurrentGroup() != null && viewModel.getCurrentGroup().isReferenceVideoMirrored();
+            previewImageView.setScaleX(enabled ? -1 : 1);
+            mirror.setText(enabled ? "取消镜像" : "左右镜像");
+        };
+        mirror.setOnAction(event -> {
+            if (viewModel.getCurrentGroup() == null) return;
+            viewModel.getCurrentGroup().setReferenceVideoMirrored(!viewModel.getCurrentGroup().isReferenceVideoMirrored());
+            viewModel.markGroupChanged();
+            refreshMirror.run();
+        });
+        viewModel.currentGroupProperty().addListener((obs, previous, current) -> refreshMirror.run());
+        refreshMirror.run();
+        videoSection.getChildren().addAll(videoContainer, title, mirror);
 
         return new VideoSectionResult(videoSection, previewImageView);
     }

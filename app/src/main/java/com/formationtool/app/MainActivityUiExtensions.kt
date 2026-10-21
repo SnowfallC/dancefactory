@@ -358,6 +358,12 @@ internal fun MainActivity.setupUI() {
             }
         }
 
+        findViewById<Button>(R.id.btnRedo).setOnClickListener {
+            audioManager.pause()
+            if (viewModel.canRedo()) viewModel.redo()
+        }
+        setupPrecisionAndMediaControls()
+
         // 监听当前队形索引变化，更新UI
         findViewById<Button>(R.id.btnCopyPrevFrame)?.setOnClickListener {
             copyPreviousKeyframe()
@@ -484,27 +490,7 @@ internal fun MainActivity.loadPresetGroup(groupName: String, dancers: List<Dance
     }
 
 
-internal fun MainActivity.importVideo() {
-        // 初始化自动保存定时器，定期保存项目数据
-        val hasAudio = currentAudioUri != null || viewModel.audioDuration.value > 0
-        val hasVideo = hasReferenceVideo
-
-        if (hasAudio && !hasVideo) {
-            // 显示视频导出格式选择对话框
-            MaterialAlertDialogBuilder(this)
-                .setTitle("选择导出格式")
-                .setMessage("选择导出格式。导出将在后台进行，完成后会通知您。请确保导入了音频/视频文件。导出范围将基于当前导入的音频/视频时长。")
-                .setPositiveButton("确认") { _, _ ->
-                    // 弹窗确认后开始导出
-                    launchVideoImport()
-                }
-                .setNegativeButton("取消", null)
-                .show()
-        } else {
-            // 初始化视频文件选择器，用于导入参考视频
-            launchVideoImport()
-        }
-    }
+internal fun MainActivity.importVideo() { launchVideoImport() }
 
 internal fun MainActivity.launchVideoImport() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -540,7 +526,7 @@ internal fun MainActivity.showExportDialog() {
             initialFlipped = renderer.flipped,
             showDancerNames = renderer.showDancerNames
         ) { config ->
-            startExportWithConfig(config)
+            startExportWithConfig(config.copy(referenceVideoMirrored = viewModel.currentGroup.value?.referenceVideoMirrored == true))
         }
     }
 
@@ -555,6 +541,7 @@ internal fun MainActivity.observeViewModel() {
                     return@collect
                 }
 
+                referenceVideoView.scaleX = if (group.referenceVideoMirrored) -1f else 1f
                 renderer.backstageVisible = group.backstageVisible
                 refreshEditingModeControls()
                 renderer.stageWidth = group.stageWidth
@@ -770,12 +757,11 @@ internal fun MainActivity.toggleMenu() {
 
 internal fun MainActivity.showFormationPresetsDialog() {
     MaterialAlertDialogBuilder(this).setTitle("预设")
-        .setItems(arrayOf("快速人数", "自定义预设")) { _, which ->
-            if (which == 1) showCustomTeamPresets() else {
-                val counts = intArrayOf(3, 5, 7, 9, 11)
-                MaterialAlertDialogBuilder(this).setTitle("舞者人数")
-                    .setItems(counts.map { "$it 人" }.toTypedArray()) { _, index -> setDancerCount(counts[index]) }
-                    .setNegativeButton("取消", null).show()
+        .setItems(arrayOf("设置人数", "自定义预设", "整体移动当前队形")) { _, which ->
+            when (which) {
+                1 -> showCustomTeamPresets()
+                2 -> showMoveFormationDialog()
+                else -> showDancerCountDialog()
             }
         }.setNegativeButton("取消", null).show()
 }
@@ -943,12 +929,12 @@ internal fun MainActivity.showDeleteDancerDialog(dancer: com.formationtool.app.m
         )
     }
 
-internal fun MainActivity.handleAudioFile(uri: Uri) {
+internal fun MainActivity.handleAudioFile(uri: Uri, persistMedia: Boolean = false) {
         // 显示保存对话框，让用户输入项目名称
         if (currentProjectId == null) {
             showProjectNameDialogForMediaImport(uri, isVideo = false)
         } else {
-            loadAudioAfterProjectReady(uri)
+            loadAudioAfterProjectReady(uri, persistMedia)
         }
     }
 
@@ -972,9 +958,9 @@ internal fun MainActivity.showProjectNameDialogForMediaImport(uri: Uri, isVideo:
 
                 // 保存到指定项目名称目录
                 if (isVideo) {
-                    loadVideoAfterProjectReady(uri)
+                    loadVideoAfterProjectReady(uri, true)
                 } else {
-                    loadAudioAfterProjectReady(uri)
+                    loadAudioAfterProjectReady(uri, true)
                 }
             }
             .setNegativeButton("取消") { _, _ ->
@@ -989,10 +975,13 @@ internal fun MainActivity.showProjectNameDialogForMediaImport(uri: Uri, isVideo:
             .show()
     }
 
-internal fun MainActivity.loadAudioAfterProjectReady(uri: Uri) {
+internal fun MainActivity.loadAudioAfterProjectReady(uri: Uri, persistMedia: Boolean = false) {
+        audioManager.pause()
+        val previousTime = viewModel.currentTime.value
+        try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
         val success = audioManager.loadAudio(uri)
         if (success) {
-            currentAudioUri = uri  // 保存音频URI
+            currentAudioUri = uri
             val duration = audioManager.duration.value
             viewModel.setAudioPath(uri.toString(), duration)
 
@@ -1006,29 +995,35 @@ internal fun MainActivity.loadAudioAfterProjectReady(uri: Uri) {
             findViewById<Button>(R.id.btnDeleteVideo).visibility = View.VISIBLE
 
             // 检查参考视频文件是否存在
-            audioManager.seekTo(0L)
-            viewModel.seekTo(0L)
-            scrollToTime(0L)
+            val targetTime = previousTime.coerceAtMost(duration)
+            audioManager.seekTo(targetTime)
+            viewModel.seekTo(targetTime)
+            scrollToTime(targetTime)
+            if (persistMedia) persistSelectedMedia()
         }
     }
 
-internal fun MainActivity.handleVideoFile(uri: Uri) {
+internal fun MainActivity.handleVideoFile(uri: Uri, persistMedia: Boolean = false) {
         // 显示保存对话框，让用户输入项目名称并保存
         if (currentProjectId == null) {
             showProjectNameDialogForMediaImport(uri, isVideo = true)
         } else {
-            loadVideoAfterProjectReady(uri)
+            loadVideoAfterProjectReady(uri, persistMedia)
         }
     }
 
-internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri) {
+internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri, persistMedia: Boolean = false) {
+        audioManager.pause()
+        val previousTime = viewModel.currentTime.value
+        val keepAudio = persistMedia && currentAudioUri != null && currentAudioUri != referenceVideoUri
+        try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
         try {
             videoPlaybackSyncJob?.cancel()
             videoSeekSyncJob?.cancel()
             referenceVideoView.stopPlayback()
             // 保存音频URI
             referenceVideoUri = uri
-            currentAudioUri = uri  // 保存音频URI
+            if (!keepAudio) currentAudioUri = uri
 
             // 创建保存目录并写入项目数据
             hasReferenceVideo = true
@@ -1051,19 +1046,21 @@ internal fun MainActivity.loadVideoAfterProjectReady(uri: Uri) {
             referenceVideoView.setVideoURI(uri)
 
             // 2. 清除撤销历史记录
-            val success = audioManager.loadAudio(uri)
+            val success = keepAudio || audioManager.loadAudio(uri)
             if (success) {
                 val duration = audioManager.duration.value
-                viewModel.setAudioPath(uri.toString(), duration)
+                if (!keepAudio) viewModel.setAudioPath(uri.toString(), duration)
 
                 // 获取文件名
                 val fileName = uri.lastPathSegment ?: "未知视频文件"
 
                 // 检查参考视频文件是否存在并设置预览
-                audioManager.seekTo(0L)
-                viewModel.seekTo(0L)
-                referenceVideoView.seekTo(0)
-                scrollToTime(0L)
+                val targetTime = previousTime.coerceAtMost(duration)
+                audioManager.seekTo(targetTime)
+                viewModel.seekTo(targetTime)
+                referenceVideoView.seekTo(targetTime.toInt())
+                scrollToTime(targetTime)
+                if (persistMedia) persistSelectedMedia()
             }
 
             // 3. 清除数据并重新初始化UI

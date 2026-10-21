@@ -216,6 +216,28 @@ public final class TeamPresetController {
         Button create = new Button("新建预设");
         Button edit = new Button("编辑");
         Button apply = new Button("应用到当前工程");
+        Button importFile = new Button("导入预设");
+        importFile.setOnAction(event -> {
+            javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+            chooser.setTitle("导入预设 JSON 文件");
+            chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("预设 JSON 文件", "*.json"));
+            java.io.File source = chooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+            if (source == null) return;
+            try {
+                List<CustomTeamPreset> imported = store.readImport(source.toPath());
+                var names = store.load().stream().map(CustomTeamPreset::name).collect(java.util.stream.Collectors.toSet());
+                long conflicts = imported.stream().filter(preset -> names.contains(preset.name())).count();
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                PresetDialogTheme.apply(confirm);
+                confirm.setTitle("导入预设");
+                confirm.setHeaderText("将导入 " + imported.size() + " 个预设");
+                confirm.setContentText(conflicts > 0 ? "其中 " + conflicts + " 个同名预设将被覆盖。" : "现有预设将保留。");
+                if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+                store.importPresets(imported);
+                presets.getItems().setAll(store.load());
+                statusUpdater.accept("已导入 " + imported.size() + " 个预设");
+            } catch (IOException | IllegalArgumentException error) { showPresetError(error); }
+        });
         edit.disableProperty().bind(presets.getSelectionModel().selectedItemProperty().isNull());
         apply.disableProperty().bind(presets.getSelectionModel().selectedItemProperty().isNull());
         Consumer<CustomTeamPreset> editPreset = initial -> CustomTeamPresetDialog.create(initial).showAndWait().ifPresent(preset -> {
@@ -239,7 +261,7 @@ public final class TeamPresetController {
                 dialog.close();
             }
         });
-        VBox content = new VBox(12, presets, new HBox(8, create, edit, apply));
+        VBox content = new VBox(12, presets, new HBox(8, create, edit, apply, importFile));
         content.setPadding(new Insets(16));
         content.setPrefWidth(560);
         dialog.getDialogPane().setContent(content);

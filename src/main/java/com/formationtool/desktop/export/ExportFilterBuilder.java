@@ -11,7 +11,7 @@ final class ExportFilterBuilder {
         StringBuilder filter = new StringBuilder();
 
         if (config.getPrimaryView() == ExportConfig.ViewType.REFERENCE_VIDEO) {
-            filter.append("[1:v]scale=").append(halfWidth).append(":").append(outputHeight)
+            filter.append(config.isReferenceVideoMirrored() ? "[1:v]hflip,scale=" : "[1:v]scale=").append(halfWidth).append(":").append(outputHeight)
                 .append(":force_original_aspect_ratio=decrease,")
                 .append("pad=").append(halfWidth).append(":").append(outputHeight).append(":(ow-iw)/2:(oh-ih)/2:black[left];");
         } else {
@@ -19,7 +19,7 @@ final class ExportFilterBuilder {
         }
 
         if (config.getSecondaryView() == ExportConfig.ViewType.REFERENCE_VIDEO) {
-            filter.append("[1:v]scale=").append(halfWidth).append(":").append(outputHeight)
+            filter.append(config.isReferenceVideoMirrored() ? "[1:v]hflip,scale=" : "[1:v]scale=").append(halfWidth).append(":").append(outputHeight)
                 .append(":force_original_aspect_ratio=decrease,")
                 .append("pad=").append(halfWidth).append(":").append(outputHeight).append(":(ow-iw)/2:(oh-ih)/2:black[right];");
         } else {
@@ -35,7 +35,7 @@ final class ExportFilterBuilder {
         StringBuilder filter = new StringBuilder();
 
         if (config.getPrimaryView() == ExportConfig.ViewType.REFERENCE_VIDEO) {
-            filter.append("[1:v]scale=").append(outputWidth).append(":").append(halfHeight)
+            filter.append(config.isReferenceVideoMirrored() ? "[1:v]hflip,scale=" : "[1:v]scale=").append(outputWidth).append(":").append(halfHeight)
                 .append(":force_original_aspect_ratio=decrease,")
                 .append("pad=").append(outputWidth).append(":").append(halfHeight).append(":(ow-iw)/2:(oh-ih)/2:black[top];");
         } else {
@@ -43,7 +43,7 @@ final class ExportFilterBuilder {
         }
 
         if (config.getSecondaryView() == ExportConfig.ViewType.REFERENCE_VIDEO) {
-            filter.append("[1:v]scale=").append(outputWidth).append(":").append(halfHeight)
+            filter.append(config.isReferenceVideoMirrored() ? "[1:v]hflip,scale=" : "[1:v]scale=").append(outputWidth).append(":").append(halfHeight)
                 .append(":force_original_aspect_ratio=decrease,")
                 .append("pad=").append(outputWidth).append(":").append(halfHeight).append(":(ow-iw)/2:(oh-ih)/2:black[bottom];");
         } else {

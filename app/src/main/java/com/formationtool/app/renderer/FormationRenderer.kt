@@ -30,9 +30,12 @@ class FormationRenderer : GLSurfaceView.Renderer {
     private var needsGridUpdate = false  // 标记是否需要更新网格
 
     var cameraView = CameraView()
-    var currentFormation: Formation? = null
-    var nextFormation: Formation? = null
-    var transitionProgress: Float = 0f  // 0-1之间的过渡进度
+    // 主线程发布独立快照，渲染线程不得遍历正在编辑的集合。
+    @Volatile var currentFormation: Formation? = null
+        set(value) { field = value?.renderSnapshot() }
+    @Volatile var nextFormation: Formation? = null
+        set(value) { field = value?.renderSnapshot() }
+    @Volatile var transitionProgress: Float = 0f  // 0-1之间的过渡进度
     var backstageVisible = true
     private var backstageRenderer: BackstageRenderer? = null
     var stageWidth: Float = 16f
@@ -316,7 +319,7 @@ class FormationRenderer : GLSurfaceView.Renderer {
                     0.6f
                 )
             } else if (!hasCustomStyle) {
-                val number = (index + 1).coerceIn(0, 19)
+                val number = index + 1
                 numberRenderer?.drawNumber(
                     vpMatrix,
                     viewMatrix,

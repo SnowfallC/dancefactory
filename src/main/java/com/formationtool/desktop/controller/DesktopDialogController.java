@@ -539,107 +539,32 @@ public final class DesktopDialogController {
     }
 
     public void showFormationPresetsDialog() {
-        String[] options = {
-            "设置3人",
-            "设置5人",
-            "设置7人",
-            "设置9人",
-            "设置11人"
-        };
-
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(options[3], options);
-        dialog.setTitle("快速编队");
-        dialog.setHeaderText("选择舞者数量");
-        dialog.setContentText("请选择:");
-
-        DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.setStyle("-fx-background-color: #1E1E2E;");
-        dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #1E1E2E;");
-
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(choice -> {
-            int targetCount = parsePresetDancerCount(choice);
-            if (targetCount > 0) {
-                setDancerCount(targetCount, "已设置为" + targetCount + "人");
+        DanceGroup group = viewModel.getCurrentGroup();
+        if (group == null || group.getFormations().isEmpty()) return;
+        TextInputDialog dialog = new TextInputDialog(String.valueOf(group.getDancerCount()));
+        dialog.setTitle("设置人数");
+        dialog.setHeaderText("输入总人数（1–200），保留已有人员姓名、颜色和站位");
+        dialog.setContentText("人数：");
+        dialog.showAndWait().ifPresent(value -> {
+            try {
+                int count = Integer.parseInt(value.trim());
+                if (count < 1 || count > 200) throw new NumberFormatException();
+                List<Dancer> dancers = group.getFormations().get(0).getDancers();
+                if (count < dancers.size()) {
+                    String names = dancers.subList(count, dancers.size()).stream().map(Dancer::getName)
+                        .collect(java.util.stream.Collectors.joining("、"));
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "将从所有队形移除：" + names + "。可撤销。", ButtonType.OK, ButtonType.CANCEL);
+                    confirm.setHeaderText("减少人员");
+                    if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+                }
+                viewModel.setDancerCount(count);
+                dancerListUpdater.run();
+                stageView.render();
+                statusUpdater.accept("已设置为 " + count + " 人");
+            } catch (NumberFormatException error) {
+                new Alert(Alert.AlertType.WARNING, "请输入 1–200 的整数。").showAndWait();
             }
         });
     }
 
-    private int parsePresetDancerCount(String choice) {
-        String digits = choice.replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            return 0;
-        }
-        return Integer.parseInt(digits);
-    }
-
-    private void clearAllDancers() {
-        if (viewModel.getCurrentGroup() == null) {
-            return;
-        }
-
-        DanceGroup group = viewModel.getCurrentGroup();
-        List<String> dancerIds = new ArrayList<>();
-
-        for (Dancer dancer : group.getFormations().get(0).getDancers()) {
-            dancerIds.add(dancer.getId());
-        }
-
-        for (String id : dancerIds) {
-            viewModel.deleteDancer(id);
-        }
-
-        dancerListUpdater.run();
-        stageView.render();
-    }
-
-    private int getDefaultColor(int index) {
-        int[] colors = {
-            0xFF2196F3,
-            0xFFF44336,
-            0xFF4CAF50,
-            0xFFFF9800,
-            0xFF9C27B0,
-            0xFFFFEB3B,
-            0xFF00BCD4,
-            0xFFE91E63
-        };
-        return colors[index % colors.length];
-    }
-
-    private void setDancerCount(int targetCount, String successMessage) {
-        if (viewModel.getCurrentGroup() == null) {
-            return;
-        }
-
-        DanceGroup group = viewModel.getCurrentGroup();
-        int currentCount = group.getFormations().get(0).getDancers().size();
-
-        if (currentCount == targetCount) {
-            statusUpdater.accept("当前已是" + targetCount + "人");
-            return;
-        }
-
-        if (currentCount < targetCount) {
-            int addCount = targetCount - currentCount;
-            for (int i = 0; i < addCount; i++) {
-                int nextNumber = currentCount + i + 1;
-                int color = getDefaultColor(currentCount + i);
-                viewModel.addDancer("舞者" + nextNumber, color);
-            }
-        } else {
-            List<String> dancerIdsToRemove = new ArrayList<>();
-            Formation formation = group.getFormations().get(0);
-            for (int i = targetCount; i < formation.getDancers().size(); i++) {
-                dancerIdsToRemove.add(formation.getDancers().get(i).getId());
-            }
-            for (String dancerId : dancerIdsToRemove) {
-                viewModel.deleteDancer(dancerId);
-            }
-        }
-
-        dancerListUpdater.run();
-        stageView.render();
-        statusUpdater.accept(successMessage);
-    }
 }

@@ -139,6 +139,48 @@ public class FormationViewModel {
         notifyGroupChange();
     }
 
+    public void setDancerCount(int count) {
+        if (count < 1 || count > 200) throw new IllegalArgumentException("人数必须为 1–200");
+        DanceGroup group = currentGroup.get();
+        if (group == null || group.getFormations().isEmpty()) return;
+        List<Dancer> roster = group.getFormations().get(0).getDancers();
+        if (roster.size() == count) return;
+        undoManager.saveSnapshot(group);
+        List<Dancer> added = new ArrayList<>();
+        for (int index = roster.size(); index < count; index++) {
+            Dancer dancer = new Dancer(UUID.randomUUID().toString(), "舞者" + (index + 1),
+                (index % 2 == 0 ? -1 : 1) * (group.getStageWidth() / 2 + group.getBackstageWidth() / 2),
+                0f, 0xFF2196F3);
+            added.add(dancer);
+        }
+        java.util.Set<String> keep = roster.stream().limit(count).map(Dancer::getId).collect(java.util.stream.Collectors.toSet());
+        for (Formation formation : group.getFormations()) {
+            formation.getDancers().removeIf(dancer -> !keep.contains(dancer.getId()));
+            for (Dancer dancer : added) formation.getDancers().add(dancer.copy());
+        }
+        group.setDancerCount(count);
+        notifyGroupChange();
+    }
+
+    /** 整体移动保留相对间距，到达边界时统一限制位移。 */
+    public void moveCurrentFormation(float deltaX, float deltaY) {
+        if (!Float.isFinite(deltaX) || !Float.isFinite(deltaY)) return;
+        DanceGroup group = currentGroup.get();
+        if (group == null || group.getFormations().isEmpty()) return;
+        List<Dancer> dancers = group.getFormations().get(currentFormationIndex.get()).getDancers();
+        if (dancers.isEmpty()) return;
+        float halfWidth = group.getStageWidth() / 2 + group.getBackstageWidth();
+        float halfDepth = group.getStageDepth() / 2;
+        for (Dancer dancer : dancers) {
+            deltaX = Math.max(Math.min(0, -halfWidth - dancer.getX()), Math.min(Math.max(0, halfWidth - dancer.getX()), deltaX));
+            deltaY = Math.max(Math.min(0, -halfDepth - dancer.getY()), Math.min(Math.max(0, halfDepth - dancer.getY()), deltaY));
+        }
+        if (deltaX == 0 && deltaY == 0) return;
+        undoManager.saveSnapshot(group);
+        for (Dancer dancer : dancers) { dancer.setX(dancer.getX() + deltaX); dancer.setY(dancer.getY() + deltaY); }
+        notifyGroupChange();
+    }
+
     public void deleteDancer(String dancerId) {
         DanceGroup group = currentGroup.get();
         if (group == null) return;

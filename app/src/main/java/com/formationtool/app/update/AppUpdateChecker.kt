@@ -133,7 +133,19 @@ object AppUpdateChecker {
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!activity.packageManager.canRequestPackageInstalls()) {
-                showOfficialDownloadDialog(activity, "当前设备未授予应用安装权限，无法继续自动更新。")
+                AlertDialog.Builder(activity)
+                    .setTitle("允许安装更新")
+                    .setMessage("请在系统设置中允许舞形工坊安装应用，返回后再次点击“立即更新”。")
+                    .setPositiveButton("前往授权") { _, _ ->
+                        try {
+                            activity.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:${activity.packageName}")))
+                        } catch (_: Exception) {
+                            showOfficialDownloadDialog(activity, "无法打开安装授权设置，请在系统设置中允许本应用安装未知应用。")
+                        }
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
                 return
             }
         }

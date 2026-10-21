@@ -56,9 +56,9 @@ export async function hashFile(path) {
 }
 
 export function compareVersions(left, right) {
-  if (![left, right].every(value => /^\d+\.\d+\.\d+$/.test(value))) throw new Error('版本号必须为三段数字');
+  if (![left, right].every(value => /^\d+\.\d+\.\d+(?:\.\d+)?$/.test(value))) throw new Error('版本号必须为三段或四段数字');
   const a = left.split('.').map(Number), b = right.split('.').map(Number);
-  return Math.sign(a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  return Math.sign(a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || (a[3] ?? 0) - (b[3] ?? 0));
 }
 
 async function fetchResponse(url) {

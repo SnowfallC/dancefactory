@@ -522,6 +522,8 @@ public class DesktopVideoExporter {
             exportView.setShowDancerNames(stageView.isShowDancerNames());
             exportView.setShowCenterLine(stageView.isShowCenterLine());
             exportView.setFlipped(config.isFlipped());
+            exportView.setMirrored(config.isMirrored());
+            exportView.setDancerScale(config.getDancerScale());
             // 关键修复：同步舞台尺寸
             DanceGroup group = viewModel.getCurrentGroup();
             if (group != null) {
@@ -643,6 +645,8 @@ public class DesktopVideoExporter {
             exportView.setShowDancerNames(stageView.isShowDancerNames());
             exportView.setShowCenterLine(stageView.isShowCenterLine());
             exportView.setFlipped(config.isFlipped());
+            exportView.setMirrored(config.isMirrored());
+            exportView.setDancerScale(config.getDancerScale());
             // 关键修复：同步舞台尺寸
             DanceGroup group = viewModel.getCurrentGroup();
             if (group != null) {
@@ -725,7 +729,8 @@ public class DesktopVideoExporter {
                 case SINGLE:
                     // 单屏模式：只输出一个视图
                     if (config.getPrimaryView() == ExportConfig.ViewType.REFERENCE_VIDEO) {
-                        filter = "[1:v]scale=" + outputWidth + ":" + outputHeight + "[v]";
+                        filter = (config.isReferenceVideoMirrored() ? "[1:v]hflip,scale=" : "[1:v]scale=") + outputWidth + ":" + outputHeight
+                            + ":force_original_aspect_ratio=decrease,pad=" + outputWidth + ":" + outputHeight + ":(ow-iw)/2:(oh-ih)/2:black[v]";
                     } else {
                         filter = "[0:v]scale=" + outputWidth + ":" + outputHeight + "[v]";
                     }

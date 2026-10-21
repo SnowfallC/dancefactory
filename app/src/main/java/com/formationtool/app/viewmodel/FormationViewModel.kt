@@ -95,6 +95,38 @@ class FormationViewModel : ViewModel() {
      * 是否可以撤销
      */
     fun canUndo(): Boolean = undoManager.canUndo()
+    fun canRedo(): Boolean = undoManager.canRedo()
+
+    fun redo() {
+        viewModelScope.launch {
+            groupMutex.withLock {
+                val group = _currentGroup.value ?: return@withLock
+                undoManager.redo(group)?.let { restored ->
+                    _currentFormationIndex.value = _currentFormationIndex.value.coerceIn(0, (restored.formations.size - 1).coerceAtLeast(0))
+                    emitGroupUpdateLocked(restored)
+                }
+            }
+        }
+    }
+
+    fun moveCurrentFormation(deltaX: Float, deltaY: Float) {
+        if (!deltaX.isFinite() || !deltaY.isFinite() || (deltaX == 0f && deltaY == 0f)) return
+        viewModelScope.launch {
+            groupMutex.withLock {
+                val group = _currentGroup.value ?: return@withLock
+                val dancers = group.formations.getOrNull(_currentFormationIndex.value)?.dancers ?: return@withLock
+                if (dancers.isEmpty()) return@withLock
+                val halfWidth = group.stageWidth / 2 + group.backstageWidth()
+                val halfDepth = group.stageDepth / 2
+                val x = deltaX.coerceIn(minOf(0f, -halfWidth - dancers.minOf { it.x }), maxOf(0f, halfWidth - dancers.maxOf { it.x }))
+                val y = deltaY.coerceIn(minOf(0f, -halfDepth - dancers.minOf { it.y }), maxOf(0f, halfDepth - dancers.maxOf { it.y }))
+                if (x == 0f && y == 0f) return@withLock
+                undoManager.saveSnapshot(group)
+                dancers.forEach { it.x += x; it.y += y }
+                emitGroupUpdateLocked(group)
+            }
+        }
+    }
 
     /**
      * 手动保存撤销快照（用于拖动开始时调用）
@@ -202,6 +234,9 @@ class FormationViewModel : ViewModel() {
             audioUri = group.audioUri,  // 复制音频URI
             referenceVideoPath = group.referenceVideoPath,  // 复制视频内部路径
             audioPath = group.audioPath,  // 复制音频内部路径
+            audioSourceUri = group.audioSourceUri,
+            videoSourceUri = group.videoSourceUri,
+            referenceVideoMirrored = group.referenceVideoMirrored,
             thumbnailPath = group.thumbnailPath,  // 复制缩略图路径
             createdTime = group.createdTime,
             modifiedTime = System.currentTimeMillis(),

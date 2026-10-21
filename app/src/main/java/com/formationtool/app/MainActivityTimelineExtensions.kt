@@ -136,6 +136,7 @@ internal fun MainActivity.setupTimeline() {
                         }
                         MotionEvent.ACTION_MOVE -> {
                             if (isDragging && (hasTimelineMoved || abs(event.rawX - timelineTouchDownX) > 8 * resources.displayMetrics.density)) {
+                                if (!hasTimelineMoved) audioManager.pause()
                                 val deltaX = lastScrollX - event.rawX
                                 if (abs(event.rawX - timelineTouchDownX) > 8 * resources.displayMetrics.density) hasTimelineMoved = true
 

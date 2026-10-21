@@ -26,6 +26,8 @@ class OffscreenRenderer(
 
     private var cameraView = CameraView()
     private var is2DMode = false
+    var mirrored = false
+    var dancerScale = 1f
     private var flipped = false  // 是否翻转方向
     private var showDancerNames = true
     private var currentFormation: Formation? = null
@@ -385,7 +387,7 @@ class OffscreenRenderer(
                 z = dancer.z
             }
 
-            val renderX = if (flipped) -x else x
+            val renderX = (if (flipped) -x else x) * (if (mirrored) -1f else 1f)
             val renderY = if (flipped) -y else y
             val customStylePath = dancer.customStylePath
             val hasCustomStyle = !customStylePath.isNullOrEmpty() && File(customStylePath).exists()
@@ -398,7 +400,7 @@ class OffscreenRenderer(
                     x = renderX,
                     y = renderY,
                     z = z,
-                    scale = 0.8f * dancer.scale
+                    scale = 0.8f * dancer.scale * dancerScale
                 )
                 return@forEach
             }
@@ -409,7 +411,7 @@ class OffscreenRenderer(
             if (is2DMode) {
                 android.opengl.Matrix.rotateM(modelMatrix, 0, 90f, 1f, 0f, 0f)
             }
-            android.opengl.Matrix.scaleM(modelMatrix, 0, 0.5f * dancer.scale, 0.5f * dancer.scale, 0.5f * dancer.scale)
+            android.opengl.Matrix.scaleM(modelMatrix, 0, 0.5f * dancer.scale * dancerScale, 0.5f * dancer.scale * dancerScale, 0.5f * dancer.scale * dancerScale)
 
             android.opengl.Matrix.multiplyMM(mvpMatrix, 0, vpMatrix, 0, modelMatrix, 0)
             GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0)
@@ -453,7 +455,7 @@ class OffscreenRenderer(
                 z = dancer.z
             }
 
-            val renderX = if (flipped) -x else x
+            val renderX = (if (flipped) -x else x) * (if (mirrored) -1f else 1f)
             val renderY = if (flipped) -y else y
             val customStylePath = dancer.customStylePath
             val hasCustomStyle = !customStylePath.isNullOrEmpty() && File(customStylePath).exists()
@@ -466,10 +468,10 @@ class OffscreenRenderer(
                     renderX,
                     renderY,
                     z + 0.3f,
-                    0.6f
+                    0.6f * dancerScale
                 )
             } else if (!hasCustomStyle) {
-                val number = (index + 1).coerceIn(0, 19)
+                val number = index + 1
                 renderer.drawNumber(
                     vpMatrix,
                     viewMatrix,
@@ -477,7 +479,7 @@ class OffscreenRenderer(
                     renderX,
                     renderY,
                     z,
-                    0.5f
+                    0.5f * dancerScale
                 )
             }
         }

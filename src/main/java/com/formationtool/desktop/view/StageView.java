@@ -346,7 +346,7 @@ public class StageView extends Canvas {
 
         double centerX = canvasWidth / 2;
         double centerY = canvasHeight / 2;
-        double radius = 15;
+        double radius = Math.max(10, Math.min(24, scale * 0.5)) * dancerScale;
 
         // 获取插值后的舞者位置
         List<Dancer> displayDancers = getInterpolatedDancers();
@@ -360,7 +360,7 @@ public class StageView extends Canvas {
         }
 
         for (Dancer dancer : displayDancers) {
-            double screenX = centerX + dancer.getX() * scale;
+            double screenX = centerX + (mirrored ? -dancer.getX() : dancer.getX()) * scale;
             // Y轴处理：正常模式Y取反（屏幕坐标系），翻转模式不取反
             // screenY = centerY ± dancer.getY() * scale
             // flipped: +Y向下；normal: -Y向上
@@ -401,6 +401,7 @@ public class StageView extends Canvas {
                 fontSize = 12;
             }
 
+            fontSize = Math.max(10, fontSize * Math.max(0.75, radius / 15));
             gc.setFont(createStageTextFont(fontSize));
             gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
             gc.setTextBaseline(javafx.geometry.VPos.CENTER);
@@ -785,6 +786,13 @@ public class StageView extends Canvas {
      * 设置视图缩放比例
      *
      */
+    private boolean mirrored;
+    private double dancerScale = 1.0;
+    public boolean isMirrored() { return mirrored; }
+    public double getDancerScale() { return dancerScale; }
+    public void setMirrored(boolean value) { mirrored = value; render(); }
+    public void setDancerScale(double value) { dancerScale = Math.max(0.5, Math.min(2, value)); render(); }
+
     public void setViewScale(double scale) {
         this.zoomFactor = (float) Math.max(0.5, Math.min(2.0, scale));
         render();

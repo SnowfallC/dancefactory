@@ -60,6 +60,9 @@ class VideoExporter(
         val primaryView: ViewType = ViewType.VIEW_2D,
         val secondaryView: ViewType = ViewType.VIEW_45_DEGREE,
         val viewScale: Float = 1.0f,  // 视角缩放 (0.5 ~ 2.0)
+        val mirrored: Boolean = false,
+        val referenceVideoMirrored: Boolean = false,
+        val dancerScale: Float = 1f,
         val flipped: Boolean = false,  // 是否将舞台整体旋转180°导出
         val showDancerNames: Boolean = true  // true=显示名字, false=显示编号
     )
@@ -712,6 +715,8 @@ class VideoExporter(
     /**
      * 渲染视频纹理到屏幕（保持宽高比，添加黑边）
      */
+    internal var referenceVideoMirrored = false
+
     internal fun renderVideoTexture(
         textureId: Int,
         videoWidth: Int,
@@ -774,8 +779,8 @@ class VideoExporter(
         GLES20.glUseProgram(program)
 
         // 计算保持宽高比的顶点坐标（NDC坐标系）
-        val left = -scaleX
-        val right = scaleX
+        val left = if (referenceVideoMirrored) scaleX else -scaleX
+        val right = -left
         val bottom = -scaleY
         val top = scaleY
 

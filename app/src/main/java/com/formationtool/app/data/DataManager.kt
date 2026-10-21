@@ -90,7 +90,7 @@ class DataManager(private val context: Context) {
             val destFile = File(destDir, destFileName)
 
             // 复制文件到内部存储
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            (context.contentResolver.openInputStream(uri) ?: throw IOException("无法读取媒体文件")).use { input ->
                 FileOutputStream(destFile).use { output ->
                     input.copyTo(output)
                 }
@@ -157,20 +157,21 @@ class DataManager(private val context: Context) {
                 try {
                     val audioUri = Uri.parse(group.audioUri)
                     // 检查音频是否已复制到内部存储
-                    if (group.audioPath == null || !File(group.audioPath!!).exists()) {
+                    if (shouldCopyMedia(group.audioUri, group.audioPath, group.audioSourceUri)) {
                         android.util.Log.d("DataManager", "Copying audio file to internal storage...")
                         val internalPath = copyUriToInternalStorage(audioUri, audioDir, "audio_${group.id}")
                         if (internalPath != null) {
                             group.audioPath = internalPath
+                            group.audioSourceUri = group.audioUri
                             android.util.Log.d("DataManager", "Audio saved to: $internalPath")
                         } else {
-                            android.util.Log.w("DataManager", "Failed to copy audio file")
+                            throw IOException("音频保存失败，请重新选择文件")
                         }
                     } else {
                         android.util.Log.d("DataManager", "Audio already exists at: ${group.audioPath}")
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("DataManager", "Error copying audio file", e)
+                    throw IOException("无法保存音频", e)
                 }
             }
 
@@ -179,20 +180,21 @@ class DataManager(private val context: Context) {
                 try {
                     val videoUri = Uri.parse(group.referenceVideoUri)
                     // 检查视频是否已复制到内部存储
-                    if (group.referenceVideoPath == null || !File(group.referenceVideoPath!!).exists()) {
+                    if (shouldCopyMedia(group.referenceVideoUri, group.referenceVideoPath, group.videoSourceUri)) {
                         android.util.Log.d("DataManager", "Copying video file to internal storage...")
                         val internalPath = copyUriToInternalStorage(videoUri, videoDir, "video_${group.id}")
                         if (internalPath != null) {
                             group.referenceVideoPath = internalPath
+                            group.videoSourceUri = group.referenceVideoUri
                             android.util.Log.d("DataManager", "Video saved to: $internalPath")
                         } else {
-                            android.util.Log.w("DataManager", "Failed to copy video file")
+                            throw IOException("视频保存失败，请重新选择文件")
                         }
                     } else {
                         android.util.Log.d("DataManager", "Video already exists at: ${group.referenceVideoPath}")
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("DataManager", "Error copying video file", e)
+                    throw IOException("无法保存视频", e)
                 }
             }
 

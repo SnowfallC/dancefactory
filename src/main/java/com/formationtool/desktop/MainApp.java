@@ -979,11 +979,13 @@ public class MainApp extends Application {
 
             if (importAudioMenuItem != null) {
                 // 只有已经有音频时才禁用导入音频
-                importAudioMenuItem.setDisable(hasAudio);
+                importAudioMenuItem.setDisable(false);
+                importAudioMenuItem.setText(hasAudio ? "更换音频…" : "导入音频…");
             }
             if (importVideoMenuItem != null) {
                 // 只有已经有视频时才禁用导入视频
-                importVideoMenuItem.setDisable(hasVideo);
+                importVideoMenuItem.setDisable(false);
+                importVideoMenuItem.setText(hasVideo ? "更换参考视频…" : "导入参考视频…");
             }
 
             System.out.println("[菜单状态] 导入音频:" + (hasAudio ? "禁用" : "启用") +

@@ -162,7 +162,7 @@ public final class ControlPanelFactory {
         buttonGrid.setVgap(5);
 
         Button snapToGridBtn = new Button("对齐网格");
-        Button formationBtn = new Button("快速编队");
+        Button formationBtn = new Button("设置人数");
         Button clearSelectionBtn = new Button("清除选择");
         Button toggleNamesBtn = new Button("显示名字");
         Button copyPrevFrameBtn = new Button("复制前帧");
@@ -229,6 +229,26 @@ public final class ControlPanelFactory {
         buttonGrid.add(toggleCenterLineBtn, 1, 3);
         buttonGrid.add(flipDirectionBtn, 0, 4);
         buttonGrid.add(autoSnapBtn, 1, 4);
+        Button moveFormation = new Button("整体移动");
+        moveFormation.setMaxWidth(Double.MAX_VALUE);
+        moveFormation.setOnAction(event -> {
+            javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog("0, 0");
+            dialog.setTitle("整体移动当前队形");
+            dialog.setHeaderText("输入 X、Y 位移（米），例如 1.5, -0.5；只修改当前队形，可撤销");
+            dialog.showAndWait().ifPresent(value -> {
+                try {
+                    String[] parts = value.replace('，', ',').split(",", -1);
+                    if (parts.length != 2) throw new NumberFormatException();
+                    float x = Float.parseFloat(parts[0].trim()), y = Float.parseFloat(parts[1].trim());
+                    if (!Float.isFinite(x) || !Float.isFinite(y)) throw new NumberFormatException();
+                    viewModel.moveCurrentFormation(x, y);
+                    stageView.render();
+                } catch (NumberFormatException error) {
+                    new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING, "请输入两个有限数字，以逗号分隔。").showAndWait();
+                }
+            });
+        });
+        buttonGrid.add(moveFormation, 0, 5, 2, 1);
 
         for (int i = 0; i < 2; i++) {
             ColumnConstraints col = new ColumnConstraints();

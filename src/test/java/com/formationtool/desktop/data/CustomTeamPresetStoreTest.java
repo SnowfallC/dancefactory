@@ -38,6 +38,33 @@ class CustomTeamPresetStoreTest {
         assertEquals(List.of(preset("B"), preset("新名字")), store.load());
     }
 
+    @Test void shouldImportAndroidExportAndPreserveUnrelatedPresets() throws Exception {
+        CustomTeamPresetStore store = new CustomTeamPresetStore(directory.resolve("presets.json"));
+        store.save(preset("保留"));
+        Path source = directory.resolve("android-export.json");
+        Files.writeString(source, """
+            {"version":1,"presets":[{"name":"安卓团队","members":[{"name":"穗乃果","color":"#FFA500"}]}]}
+            """, StandardCharsets.UTF_8);
+        var imported = store.readImport(source);
+        store.importPresets(imported);
+        store.importPresets(imported);
+        assertEquals(2, store.load().size());
+        assertEquals("保留", store.load().get(0).name());
+        assertEquals("穗乃果", store.load().get(1).members().get(0).name());
+    }
+
+    @Test void shouldRejectWholeImportBeforeWritingIfAnyPresetIsInvalid() throws Exception {
+        Path file = directory.resolve("presets.json");
+        CustomTeamPresetStore store = new CustomTeamPresetStore(file);
+        store.save(preset("保留"));
+        String before = Files.readString(file);
+        var invalid = new CustomTeamPreset("无效", List.of(new CustomTeamPreset.Member("舞者", "bad")));
+        assertThrows(IllegalArgumentException.class, () -> store.importPresets(List.of(preset("有效"), invalid)));
+        assertEquals(before, Files.readString(file));
+        assertThrows(IllegalArgumentException.class, () -> store.importPresets(List.of(preset("同名"), preset("同名"))));
+        assertEquals(before, Files.readString(file));
+    }
+
     @Test void shouldPreserveCorruptLibraryAndRejectInvalidColors() throws Exception {
         Path file = directory.resolve("presets.json");
         Files.writeString(file, "{ broken json", StandardCharsets.UTF_8);
