@@ -346,7 +346,8 @@ public class StageView extends Canvas {
 
         double centerX = canvasWidth / 2;
         double centerY = canvasHeight / 2;
-        double radius = Math.max(10, Math.min(24, scale * 0.5)) * dancerScale;
+        // 角色使用固定屏幕尺寸，只允许导出角色大小设置单独调整。
+        double radius = 15 * dancerScale;
 
         // 获取插值后的舞者位置
         List<Dancer> displayDancers = getInterpolatedDancers();
@@ -401,7 +402,7 @@ public class StageView extends Canvas {
                 fontSize = 12;
             }
 
-            fontSize = Math.max(10, fontSize * Math.max(0.75, radius / 15));
+            fontSize *= dancerScale;
             gc.setFont(createStageTextFont(fontSize));
             gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
             gc.setTextBaseline(javafx.geometry.VPos.CENTER);
